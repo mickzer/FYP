@@ -12,24 +12,51 @@ class S3:
 	def __init__(self):
 		self.bucket_name = global_conf.BUCKET
 		log.info('Connecting to S3 (%s)' % (self.bucket_name))
-		c = boto.connect_s3()
 		try:
+			c = boto.connect_s3()
 			self.bucket = c.get_bucket(self.bucket_name)
 		except Exception, e:
-			log.error('%s (%s)' % (str(e), self.bucket_name), exc_info=True)
-	def put(self, file_path, key=None):
+			log.error('S3 Error: %s (%s)' % (str(e), self.bucket_name), exc_info=True)
+
+	def copy(self, src_key, dest_key):
+		if src_key[0] == '/':
+			src_key=src_key[1:]
+		if dest_key[0] == '/':
+			dest_key=dest_key[1:]
 		try:
+			self.bucket.copy_key(src_key_name=src_key, src_bucket_name=self.bucket_name, new_key_name=dest_key)
+			return True
+		except Exception, e:
+			log.error('S3 Copy Error: %s (%s)' % (str(e), self.bucket_name), exc_info=True)
+			return False
+
+	def put(self, file_path, key=None):
+		"""This function uploads a file to S3.
+
+	    Args:
+	       file_path (str):  The path of the file for upload
+
+	    Kwargs:
+	       key (str): Specific key to use for the file.
+
+	    Returns:
+	       bool.  The return code::
+
+	          True -- Success!
+	          False -- Failure
+	    """
+		try:
+			key_name = key if key else os.path.basename(file_path)
 			size = os.stat(file_path).st_size
-			#log.info('Uploading File %s bytes (%s)' %(size, self.bucket_name))
-			if size < 104857600:
+			if size < 104857600: #100 mb
 				k = Key(self.bucket)
-				k.key = key if key else os.path.basename(file_path)
+				k.key = key_name
 				sent = k.set_contents_from_filename(file_path)
-				log.info('Uploading to S3 (%s)' % (self.bucket_name))
+				log.info('Uploading %s to S3 (%s)' % (key_name, self.bucket_name))
 				return sent == size
 			else:
-				log.info('Multipart Uploading to S3 (%s)' % (self.bucket_name))
-				mp = self.bucket.initiate_multipart_upload(os.path.basename(file_path))
+				log.info('Multipart Uploading %s to S3 (%s)' % (key_name, self.bucket_name))
+				mp = self.bucket.initiate_multipart_upload(key_name)
 				chunk_size = 52428800
 				chunk_count = int(math.ceil(size / float(chunk_size)))
 				#Send the file parts, using FileChunkIO to create a file-like object
@@ -46,18 +73,75 @@ class S3:
 		except Exception, e:
 			log.error('Failed to upload to S3 (%s)' % (self.bucket_name), exc_info=True)
 			return False
-	def get(self, key, save_to_file=False, file_path=None):
-		log.info('Downloading from S3 (%s)' % (self.bucket_name))
+	def get(self, key, file_path=None):
+		"""This function downloads a file from S3.
+
+	    Args:
+	       key(str):  The key of the file to download
+
+	    Kwargs:
+	       file_path (str): Used if the file should be saved
+
+	    Returns:
+	       bool or Key.  The return code::
+
+	       	  dict -- A dict with the key, value from S3
+	          True -- Success
+	          False -- Failure
+	    """
+		log.info('Downloading file (%s) from S3 (%s)' % (key, self.bucket_name))
 		try:
 			k = self.bucket.get_key(key)
 			if k:
-				if save_to_file:
+				if file_path:
 					k.get_contents_to_filename(file_path)
 					return True
 				else:
-					return k
+					return {'key': os.path.basename(key), 'value': k.get_contents_as_string()}
 			else:
 				return False
 		except Exception, e:
-			log.error('Failed to download from S3 (%s)' % (self.bucket_name), exc_info=True)
+			log.error('Failed to download key (%s) from S3 (%s)' % (key, self.bucket_name), exc_info=True)
 			return False
+
+	def get_directory(self, directory_key, file_path=None):
+		"""This function downloads all the files in a directory from S3.
+
+	    Args:
+	       key(str):  The key of the file to download
+
+	    Kwargs:
+	       file_path (str): Used if the files should be saved in a folder
+
+	    Returns:
+	       bool or Key.  The return code::
+
+	       	  list-- A list of dicts with the key, value from S3
+	          True -- Success
+	          False -- Failure
+	    """
+		try:
+			log.info('Downloading directory (%s) from S3 (%s)' % (directory_key, self.bucket_name))
+			if file_path:
+				if file_path[len(file_path)-1:] != '/':
+					file_path += '/'
+				if not os.path.exists(file_path):
+				    os.makedirs(file_path)
+			keys = self.bucket.list(directory_key)
+			result = []
+			for k in keys:
+				if k.key != directory_key+'/':
+					if file_path:
+						self.get(k.key, file_path=file_path+os.path.basename(k.key))
+					else:
+						k = self.get(k.key)
+						if k:
+							result.append(k)
+			if file_path:
+				return True
+			else:
+				return result if result else False
+		except Exception, e:
+			log.error('Failed to download directory (%s) from S3 (%s)' % (directory_key, self.bucket_name), exc_info=True)
+			return False
+s3=S3()

@@ -21,7 +21,10 @@ class AutoScale:
 				image_id='ami-69b9941e', #hard coding amazon linux ami ftm
 				security_groups=sg_ids,
 				instance_type=instance_type,
-				instance_profile_name=profile) #IAM ROLE
+				user_data=user_data,
+				instance_profile_name=profile,
+				associate_public_ip_address=True,
+				key_name='MyPair') #IAM ROLE
 				#add spot price & user datain the future bitches
 			self.con.create_launch_configuration(lc)
 			log.info('Created Launch Configuration - %s' % (lc.name))
@@ -63,6 +66,15 @@ class AutoScale:
 			return True
 		except Exception, e:
 			log.error('Failed to Delete Auto Scaling Group - %s' % (asg_name), exc_info=True)
+			return False
+	def describe_autoscaling_group(self, asg_name):
+		try:
+			r=self.con.get_all_groups(names=[asg_name])
+			if r:
+				return r[0]
+			return []
+		except Exception, e:
+			log.error('Failed to Describe Auto Scaling Group - %s' % (asg_name), exc_info=True)
 			return False
 
 autoscale = AutoScale()

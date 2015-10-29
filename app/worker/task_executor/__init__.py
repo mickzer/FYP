@@ -60,7 +60,7 @@ def upload_output(task):
 def message_completion(task):
     log.info('Adding task completion to SQS Queue')
     task['status'] = 'completed'
-    if workers_messaging_queue.add_message(task):
+    if workers_messaging_queue.add_message(task, msg_type='task'):
         return True
     log.error('Failed to add task completion to SQS Queue')
     return False

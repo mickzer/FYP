@@ -12,12 +12,13 @@ class Worker:
     def run(self):
         while True:
             #poll for a task
-            task = poll()
+            task = new_tasks_queue.poll()
             #remove the SQS details container
             task=task['data']
             log.info('Received Task %s for job-%s' % (str(task['task_id']), task['job_id']))
             #create message manager
             m = MessageManager()
+            m.start()
             #execute task
             run_execution(task)
             log.info('Finished Task %s for job-%s' % (str(task['task_id']), task['job_id']))

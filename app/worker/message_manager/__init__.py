@@ -1,3 +1,6 @@
+import logging
+log = logging.getLogger('root_logger')
+
 import threading, time
 from aws.sqs import new_tasks_queue
 
@@ -10,6 +13,7 @@ class MessageManager(threading.Thread):
         while True:
             #causes the thread to stop when the
             #task message has been deleted
+            log.info('Retaining Message')
             if not new_tasks_queue.retain_message():
                 break
-            time.sleep(20)
+            time.sleep(25)

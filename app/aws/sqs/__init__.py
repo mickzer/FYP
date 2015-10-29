@@ -6,7 +6,7 @@ import global_conf
 import boto.sqs
 from boto.sqs.message import Message
 from datetime import datetime
-import json
+import json, time
 
 class Sqs:
 	def __init__(self, queue_name):
@@ -14,18 +14,18 @@ class Sqs:
 		self.current_message = None
 		log.info('Connecting to SQS (%s)' % (self.queue_name))
 		try:
-			con = boto.sqs.connect_to_region(global_conf.REGION)
-			self.queue  = con.get_queue(queue_name)
+			self.con = boto.sqs.connect_to_region(global_conf.REGION)
+			self.queue  = self.con.get_queue(queue_name)
 
 			#if can't find queue, create it
 			if not self.queue:
 				log.info('Creating Queue (%s)' % (self.queue_name))
-				con.create_queue(queue_name)
-			self.queue  = con.get_queue(queue_name)
+				self.con.create_queue(queue_name)
+			self.queue  = self.con.get_queue(queue_name)
 		except Exception, e:
 			log.error('SQS Error', exc_info=True)
 			return
-	def add_message(self, data):
+	def add_message(self, data, msg_type=None):
 		"""This function adds a message to the Sqs object's queue.
 
 	    Args:
@@ -42,6 +42,8 @@ class Sqs:
 			'data': data,
 			'create_time': str(datetime.utcnow())
 		}
+		if msg_type:
+			d['type'] = msg_type
 		d = json.dumps(d)
 		log.debug(d)
 		m.set_body(d)
@@ -83,7 +85,7 @@ class Sqs:
 	    """
 		if self.current_message:
 			try:
-				self.queue.change_message_visibility((self.current_message,30))
+				self.con.change_message_visibility(self.queue, self.current_message.receipt_handle, 30)
 				return True
 			except Exception, e:
 				log.error('Failed to retain message', exc_info=True)
@@ -107,6 +109,19 @@ class Sqs:
 				log.error('Failed to delete message', exc_info=True)
 				return False
 		return False
+	def poll(self):
+		"""This function polls a queue
+
+	    Returns:
+	       bool.  The return code::
+
+	          dict - message
+	    """
+		while True:
+			rs = self.get_message()
+			if rs:
+				return rs
+			time.sleep(5)
 
 new_tasks_queue = Sqs(global_conf.NEW_TASKS_QUEUE)
 workers_messaging_queue = Sqs(global_conf.WORKERS_MESSAGING_QUEUE)

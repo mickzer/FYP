@@ -123,17 +123,26 @@ class S3:
 		try:
 			log.info('Downloading directory (%s) from S3 (%s)' % (directory_key, self.bucket_name))
 			if file_path:
-				if file_path[len(file_path)-1:] != '/':
+				if file_path[-1] != '/':
 					file_path += '/'
 				if not os.path.exists(file_path):
 				    os.makedirs(file_path)
+			#ensure dir key is of the format /key/
+			if directory_key[0] == '/':
+				directory_key = directory_key[1:]
+			if directory_key[-1] != '/':
+				directory_key += '/'
+			#list all keys in dir
 			keys = self.bucket.list(directory_key)
 			result = []
 			for k in keys:
-				if k.key != directory_key+'/':
+				#for each key except the directory itself
+				if k.key != directory_key:
 					if file_path:
+						#download it to flie_path
 						self.get(k.key, file_path=file_path+os.path.basename(k.key))
 					else:
+						#download it and save it in results
 						k = self.get(k.key)
 						if k:
 							result.append(k)

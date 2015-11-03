@@ -55,6 +55,7 @@ class Job(Base):
     executable_key_path = Column(String(256), nullable=False)
     input_key_path = Column(String(256), nullable=False)
     export_key_path = Column(String(256), nullable=False)
+    master_key_path = Column(String(256), nullable=False)
     created = Column(DateTime, default=datetime.utcnow(), nullable=False)
     finished = Column(DateTime)
     status = Column(String(50), nullable=False, default='created')

@@ -4,7 +4,7 @@ log = logging.getLogger('root_logger')
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship, backref
 from datetime import datetime
 import global_conf, uuid, subprocess, os, shutil
@@ -119,3 +119,23 @@ class Job(Base):
 
     def __repr__(self):
         return '<Job (id=%s, status=%s)>' % (self.id, self.status)
+
+class WorkerLog(Base):
+    __tablename__='worker_log'
+
+    id = Column(Integer, primary_key=True)
+    job_id = Column(String(36), ForeignKey('job.id'))
+    task_id = Column(Integer)
+    level = Column(String(10), nullable=False)
+    instance_id = Column(String(12), nullable=False)
+    pathname = Column(String(150), nullable=False)
+    msg = Column(String(100), nullable=False)
+    date = Column(DateTime, nullable=False)
+    task_message = Column(Boolean, nullable=False, default=False)
+
+    def __repr__(self):
+        #gives a representation similar to the usual python logging format
+        msg = '%s - %s - %s - %s' % (self.date, self.level, os.path.relpath(self.pathname), self.instance_id)
+        if self.task_message:
+            msg += ' - TASK_FUNCTION_MSG'
+        return + ' - %s' % (self.msg)

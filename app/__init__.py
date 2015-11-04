@@ -30,7 +30,7 @@ def provision_job(name, executable_key_path, input_key_path):
      submit_job(job_id)
      from master.receiver import receive
      log.info('Job Submitted, Starting Receiver')
-     receive()
+    #  receive()
 
 @cli.command()
 def receive():

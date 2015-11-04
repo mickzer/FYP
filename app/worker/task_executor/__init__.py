@@ -1,21 +1,23 @@
 import logging
 log = logging.getLogger('root_logger')
 
-import subprocess, os, shutil, global_conf
+import subprocess, os, shutil, sys, global_conf
 from aws.s3 import s3
 from aws.sqs import workers_messaging_queue, new_tasks_queue
 
 
 def get_script(job_id):
     log.info('Getting Exceutable Script')
-    if os.path.exists(global_conf.CWD+'worker_scripts/'+job_id+'.py'):
+    job_module = global_conf.CWD+'app/'+job_id+'/'
+    if os.path.exists(job_module+'__init__.py'):
         log.info('Exceutable Script was Cached')
         return True
     else:
-        if not os.path.isdir(global_conf.CWD+'worker_scripts/'):
-            os.makedirs(global_conf.CWD+'worker_scripts/')
+        if not os.path.isdir(job_module):
+            os.makedirs(job_module)
         log.info('Downloading Exceutable Script from S3')
-        if s3.get('job-'+job_id+'/'+job_id+'.py', file_path=global_conf.CWD+'worker_scripts/'+job_id+'.py'):
+        #download script and create a module from it called the job_id
+        if s3.get('job-'+job_id+'/'+job_id+'.py', file_path=job_module+'__init__.py'):
             log.info('Exceutable Script Downloaded')
             return True
         log.error('Failed to Download Executable Script')
@@ -82,29 +84,39 @@ def delete_local_data(task):
          return False
 
 def after_execute(task):
-    if not upload_output(task):
-        return False
-    if not message_completion(task):
-        return False
-    if not delete_task():
-        return False
+    # if not upload_output(task):
+    #     return False
+    # if not message_completion(task):
+    #     return False
+    # if not delete_task():
+    #     return False
     if not delete_local_data(task):
         return False
     return True
 
 def execute(task):
+    log.info('Executing Script <Job: %s, Task: %s>' % (task['job_id'], str(task['task_id'])))
     task_dir = global_conf.CWD+'worker_data/job-'+task['job_id']+'/task-'+str(task['task_id'])
-    #create output file
-    std_out = open(task_dir+'/output', 'w+')
-    #open the input file
-    std_in = open(task_dir+'/data')
-    log.info('Executing Script')
-    cmd = 'python -u '+global_conf.CWD+'worker_scripts/'+task['job_id']+'.py'
-    #run the script
-    process = subprocess.Popen(cmd.split(), stdout=std_out, stdin=std_in)
-    process.wait()
-    log.info('Script Execution Completed')
-    #
+    input_split = open(task_dir+'/data', 'r+')
+    #import task script
+    #equivalent to -> from job_id import run
+    task_script = getattr(__import__(task['job_id'], fromlist=['run']), 'run')
+    #send the STDOUT to the output file for running the function
+    f = open(task_dir+'/output', 'w+')
+    sys.stdout = f
+    #give 3 attempts at running task
+    for i in range(0,3):
+        try:
+            task_script(input_split)
+            break
+        except Exception, e:
+            #claim back the STDOUT
+            sys.stdout = sys.__stdout__
+            log.error('Task Script Failed on Attempt %s <Job: %s, Task: %s>' % (i, task['job_id'], str(task['task_id'])))
+    #claim back the STDOUT
+    sys.stdout = sys.__stdout__
+    log.info('Script Execution Completed <Job: %s, Task: %s>' % (task['job_id'], str(task['task_id'])))
+
     return True
 
 def run_execution(task):

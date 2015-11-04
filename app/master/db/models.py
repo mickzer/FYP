@@ -54,15 +54,14 @@ class Job(Base):
     name = Column(String(256), nullable=False)
     executable_key_path = Column(String(256), nullable=False)
     input_key_path = Column(String(256), nullable=False)
-    export_key_path = Column(String(256), nullable=False)
-    master_key_path = Column(String(256), nullable=False)
+    final_script = Column(String(256))
     created = Column(DateTime, default=datetime.utcnow(), nullable=False)
     finished = Column(DateTime)
     status = Column(String(50), nullable=False, default='created')
     tasks = relationship('Task', backref=backref('job'), cascade='delete')
     input_dir = global_conf.CWD+'input/'
 
-    def create_tasks(self):
+    def submit(self):
         #download and split input data
         self._split_input_data()
         tasks = []
@@ -114,6 +113,9 @@ class Job(Base):
         #go through each file in the directory
         for f in os.listdir(self.input_dir):
             split_file(self.input_dir+f)
+
+    def execute_final_script(self):
+        pass
 
     def __repr__(self):
         return '<Job (id=%s, status=%s)>' % (self.id, self.status)

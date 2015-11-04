@@ -24,8 +24,14 @@ def receive():
                     #check if all tasks are finished
                     uncompleted_tasks = session.query(Task).filter(and_(Task.job_id == task.job_id, Task.status != 'completed')).count()
                     if uncompleted_tasks == 0:
-                        job = session.query(Job).filter(Job.id == task.job_id).first()
-                        job.status = 'completed'
+                        job = task.job
+                        if job.final_script:
+                            if job.final_script == 'merge':
+                                print 'merge task outputs'
+                            else:
+                                job.execute_final_script()
+                        job.status = 'master script executing'
                         job.finished = datetime.utcnow()
+
                         log.info('Job (%s) Completed' % (task.job_id))
                         break

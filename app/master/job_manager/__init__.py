@@ -10,15 +10,14 @@ def create_job(**kwargs):
         j = Job(
             name=kwargs['name'],
             executable_key_path=kwargs['executable_key_path'],
-            input_key_path=kwargs['input_key_path'],
-            export_key_path=kwargs['export_key_path']
+            input_key_path=kwargs['input_key_path']
             )
         session.add(j)
         session.commit()
         log.info('Created Job %s' % (j))
         return j.id
     except Exception, e:
-        log.error('DB Error Creating Job: %s' % (j), exc_info=True)
+        log.error('DB Error Creating Job', exc_info=True)
 
 def submit_job(job_id):
     #put script in findable s3 folder
@@ -29,4 +28,4 @@ def submit_job(job_id):
         log.info('Copying Executable to the S3 Job Folder')
         s3.copy(job.executable_key_path, 'job-'+job.id+'/'+job.id+'.py')
         log.info('Creating Tasks for Job: %s' % (job))
-        job.create_tasks()
+        job.submit()

@@ -28,15 +28,27 @@ def provision_job(name, executable_key_path, input_key_path):
      from master.job_manager import  create_job, submit_job
      job_id = create_job(name=name, executable_key_path=executable_key_path, input_key_path=input_key_path, export_key_path='/none')
      submit_job(job_id)
-     from master.receiver import receive
+     from master.receiver import Receiver
      log.info('Job Submitted, Starting Receiver')
-    #  receive()
+     r = Receiver()
+     r.receive()
 
 @cli.command()
 def receive():
-    from master.receiver import receive
+    from master.receiver import Receiver
     log.info('Starting Receiver')
-    receive()
+    r = Receiver()
+    r.receive()
+
+@cli.command()
+def delete_worker_messages():
+    from aws.sqs import workers_messaging_queue
+    workers_messaging_queue.delete_all_messages()
+
+@cli.command()
+def delete_task_messages():
+    from aws.sqs import new_tasks_queue
+    new_tasks_queue.delete_all_messages()
 
 if __name__ == '__main__':
     cli()

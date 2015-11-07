@@ -94,7 +94,10 @@ class S3:
 			k = self.bucket.get_key(key)
 			if k:
 				if file_path:
+					if not os.path.exists(os.path.dirname(file_path)):
+					    os.makedirs(os.path.dirname(file_path))
 					k.get_contents_to_filename(file_path)
+					log.info('Download Complete (%s) from S3 (%s)' % (key, self.bucket_name))
 					return True
 				else:
 					return {'key': os.path.basename(key), 'value': k.get_contents_as_string()}

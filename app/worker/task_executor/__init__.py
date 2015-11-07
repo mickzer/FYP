@@ -10,20 +10,21 @@ class TaskExecutor(Executor):
     def __init__(self, task):
         Executor.__init__(self)
         self.task = task
-        self.job_dir = global_conf.CWD+'worker_data/job-'+self.task['job_id']
-        self.task_dir = self.job_dir+'/task-'+str(self.task['task_id'])
+        self.job_module = global_conf.CWD+'app/'+self.task['job_id']+'/'
+        self.job_dir = global_conf.CWD+'worker_data/job-'+self.task['job_id']+'/'
+        self.task_dir = self.job_dir+'task-'+str(self.task['task_id'])+'/'
 
     def get_script(self):
         log.info('Getting Exceutable Script')
-        if os.path.exists(self.job_dir+'__init__.py'):
+        if os.path.exists(self.job_module+'__init__.py'):
             log.info('Exceutable Script was Cached')
             return True
         else:
-            if not os.path.isdir(self.job_dir):
-                os.makedirs(self.job_dir)
+            if not os.path.isdir(self.job_module):
+                os.makedirs(self.job_module)
             log.info('Downloading Exceutable Script from S3')
             #download script and create a module from it called the job_id
-            if s3.get('job-'+self.task['job_id']+'/'+self.task['job_id']+'.py', file_path=self.job_dir+'__init__.py'):
+            if s3.get('job-'+self.task['job_id']+'/'+self.task['job_id']+'.py', file_path=self.job_module+'__init__.py'):
                 log.info('Exceutable Script Downloaded')
                 return True
             log.error('Failed to Download Executable Script')
@@ -40,7 +41,7 @@ class TaskExecutor(Executor):
             os.makedirs(self.task_dir)
         #download input split from S3
         log.info('Downloading Input Split')
-        if s3.get('job-'+self.task['job_id']+'/split_input/'+self.task['file_name'], self.task_dir+'/data'):
+        if s3.get('job-'+self.task['job_id']+'/split_input/'+self.task['file_name'], self.task_dir+'data'):
             log.info('Input Split Downloaded')
             return True
         log.error('Failed to get input split from S3')
@@ -48,12 +49,12 @@ class TaskExecutor(Executor):
 
     def execute(self):
         log.info('Executing Script')
-        input_split = open(self.task_dir+'/data', 'r+')
+        input_split = open(self.task_dir+'data', 'r+')
         #import task script
         #equivalent to -> from job_id import run as task_script
         task_script = getattr(__import__(self.task['job_id'], fromlist=['run']), 'run')
         #send the STDOUT to the output file for running the function
-        f = open(self.task_dir+'/output', 'w+')
+        f = open(self.task_dir+'output', 'w+')
         sys.stdout = f
         #give 3 attempts at running task
         for i in range(0,3):
@@ -73,7 +74,7 @@ class TaskExecutor(Executor):
     def upload_output(self):
         log.info('Uploading Task Output to S3')
         key = '/job-'+self.task['job_id']+'/output/'+str(self.task['task_id'])
-        if s3.put(self.task_dir+'/output', key):
+        if s3.put(self.task_dir+'output', key):
             return True
         log.error('Failed to Upload Task Output')
         return False

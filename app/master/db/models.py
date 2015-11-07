@@ -5,12 +5,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import relationship, backref
 from datetime import datetime
 import global_conf, uuid, subprocess, os, shutil
 from aws.s3 import s3
 from aws.sqs import new_tasks_queue
 
+# con_str='mysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
 con_str='mysql+pymysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
 engine = create_engine(con_str)
 
@@ -36,7 +38,7 @@ class Task(Base):
         Add task to S3 and SQS and change status to submitted
         """
         #s3 key is job-id/file
-        s3.put(global_conf.CWD+'input/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
+        s3.put(global_conf.CWD+'job-'+self.job_id+'/input/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
         new_tasks_queue.add_message({'id':self.id, 'job_id':self.job_id, 'task_id':self.task_id, 'file_name':self.file_name})
         try:
             self.status = 'submitted'
@@ -59,9 +61,13 @@ class Job(Base):
     finished = Column(DateTime)
     status = Column(String(50), nullable=False, default='created')
     tasks = relationship('Task', backref=backref('job'), cascade='delete')
-    input_dir = global_conf.CWD+'input/'
+    #will be set on call of submit
+    input_dir = None
 
     def submit(self):
+        #set the input dir, don't do this until now as a
+        #job must be commited before it has an id
+        self.input_dir = global_conf.CWD+'job-'+self.id+'/input/'
         #download and split input data
         self._split_input_data()
         tasks = []
@@ -69,6 +75,7 @@ class Job(Base):
         try:
             for f in os.listdir(self.input_dir):
                 tasks.append(Task(job_id=self.id, file_name=f, task_id=f[f.rfind('_')+1:]))
+                #-1 means the last element
                 session.add(tasks[-1])
             session.commit()
 
@@ -129,9 +136,17 @@ class WorkerLog(Base):
     level = Column(String(10), nullable=False)
     instance_id = Column(String(12), nullable=False)
     pathname = Column(String(150), nullable=False)
-    msg = Column(String(100), nullable=False)
-    date = Column(DateTime, nullable=False)
+    msg = Column(String(500), nullable=False)
+    date = Column(DATETIME(fsp=6), nullable=False)
     task_message = Column(Boolean, nullable=False, default=False)
+
+    def __init__(self, **kwargs):
+        Base.__init__(self)
+        for key in kwargs:
+            try:
+                setattr(self, key, kwargs[key])
+            except:
+                pass
 
     def __repr__(self):
         #gives a representation similar to the usual python logging format

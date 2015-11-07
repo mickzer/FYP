@@ -45,7 +45,7 @@ class Sqs:
 		if msg_type:
 			d['type'] = msg_type
 		d = json.dumps(d)
-		log.debug(d)
+		# log.debug(d)
 		m.set_body(d)
 		try:
 			self.queue.write(m)
@@ -91,7 +91,7 @@ class Sqs:
 				log.error('Failed to retain message', exc_info=True)
 				return False
 		return False
-	def delete_message(self):
+	def delete_message(self, message=None):
 		"""This function deletes a message from the queue
 
 	    Returns:
@@ -100,7 +100,14 @@ class Sqs:
 	          True -- Success
 	          False -- Failure
 	    """
-		if self.current_message:
+		if message:
+			try:
+				self.queue.delete_message(message)
+				return True
+			except Exception, e:
+				log.error('Failed to delete message', exc_info=True)
+				return False
+		elif self.current_message:
 			try:
 				self.queue.delete_message(self.current_message)
 				self.current_message = None
@@ -122,6 +129,12 @@ class Sqs:
 			if rs:
 				return rs
 			time.sleep(5)
+	def delete_all_messages(self):
+		while True:
+			m = self.get_message()
+			if not m:
+				break
+			self.delete_message()
 
 new_tasks_queue = Sqs(global_conf.NEW_TASKS_QUEUE)
 workers_messaging_queue = Sqs(global_conf.WORKERS_MESSAGING_QUEUE)

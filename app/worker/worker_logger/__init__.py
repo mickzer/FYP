@@ -21,7 +21,7 @@ class WorkerLoggingHandler(logging.Handler):
         data = {'msg':record.msg, 'level':record.levelname, 'pathname':record.pathname}
         #check if the log message is from a task script
         if self.job_module.match(relpath.split('/')[0]):
-            data['task_msg'] = True
+            data['task_message'] = True
         #add task and jobs to message if set
         if self.job_id:
             data['job_id'] = self.job_id

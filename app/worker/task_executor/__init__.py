@@ -48,7 +48,7 @@ class TaskExecutor(Executor):
         return False
 
     def execute(self):
-        log.info('Executing Script')
+        log.info('Executing Task Script')
         input_split = open(self.task_dir+'data', 'r+')
         #import task script
         #equivalent to -> from job_id import run as task_script
@@ -73,7 +73,7 @@ class TaskExecutor(Executor):
 
     def upload_output(self):
         log.info('Uploading Task Output to S3')
-        key = '/job-'+self.task['job_id']+'/output/'+str(self.task['task_id'])
+        key = '/job-'+self.task['job_id']+'/task_output/'+str(self.task['task_id'])
         if s3.put(self.task_dir+'output', key):
             return True
         log.error('Failed to Upload Task Output')

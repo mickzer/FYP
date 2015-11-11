@@ -156,4 +156,36 @@ class S3:
 		except Exception, e:
 			log.error('Failed to download directory (%s) from S3 (%s)' % (directory_key, self.bucket_name), exc_info=True)
 			return False
+
+	def delete_directory(self, directory_key):
+		try:
+			#ensure dir key is of the format /key/
+			if directory_key[0] == '/':
+				directory_key = directory_key[1:]
+			if directory_key[-1] != '/':
+				directory_key += '/'
+			log.info('Deleting directory (%s) from S3 (%s)' % (directory_key, self.bucket_name))
+			keys = self.bucket.list(directory_key)
+			for key in keys:
+				key.delete()
+		except Exception, e:
+			log.error('Failed to delete directory (%s) from S3 (%s)' % (directory_key, self.bucket_name), exc_info=True)
+			return False
+		log.info('Deleted directory (%s) from S3 (%s)' % (directory_key, self.bucket_name))
+		return True
+
+	def delete(self, key):
+		try:
+			log.info('Deleting File (%s) from S3 (%s)' % (key, self.bucket_name))
+			key = self.bucket.get_key(key)
+			if key:
+				key.delete()
+				log.info('Deleted File (%s) from S3 (%s)' % (key, self.bucket_name))
+				return True
+			else:
+				log.error('Failed to Delete File (%s) from S3 (%s) - Does Not Exist' % (key, self.bucket_name))
+		except Exception, e:
+			log.error('Failed to Delete File (%s) from S3 (%s)' % (key, self.bucket_name), exc_info=True)
+			return False
+
 s3=S3()

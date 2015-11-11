@@ -10,7 +10,8 @@ def create_job(**kwargs):
         j = Job(
             name=kwargs['name'],
             executable_key_path=kwargs['executable_key_path'],
-            input_key_path=kwargs['input_key_path']
+            input_key_path=kwargs['input_key_path'],
+            final_script=kwargs['final_script_key_path']
             )
         session.add(j)
         session.commit()

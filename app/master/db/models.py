@@ -7,10 +7,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy import and_
 from datetime import datetime
 import global_conf, uuid, subprocess, os, shutil
 from aws.s3 import s3
 from aws.sqs import new_tasks_queue
+from master.job_final_script_executor import JobFinalScriptExecutor
 
 # con_str='mysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
 con_str='mysql+pymysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
@@ -85,6 +87,10 @@ class Job(Base):
             #delete input folder after tasks ha ve been created and
             #splits saved to S3
             shutil.rmtree(self.input_dir)
+
+            self.status = 'submitted'
+            session.commit()
+
         except Exception, e:
             log.error('Error Creating Task', exc_info=True)
 
@@ -121,8 +127,26 @@ class Job(Base):
         for f in os.listdir(self.input_dir):
             split_file(self.input_dir+f)
 
-    def execute_final_script(self):
-        pass
+    def all_tasks_completed(self):
+        #check if all tasks are finished
+        return session.query(Task).filter(and_(Task.job_id == self.id, Task.status != 'completed')).count()  == 0
+
+    def finish(self, task_output_download_queue=None):
+            if self.final_script and task_output_download_queue:
+                if not self._execute_final_script(task_output_download_queue):
+                    self.status = 'failed'
+                    self.finished = datetime.utcnow()
+                    session.commit()
+                    return False
+            self.status = 'completed'
+            self.finished = datetime.utcnow()
+            session.commit()
+            log.info('Job <%s> Completed' % (self.id))
+            return True
+
+    def _execute_final_script(self, task_output_download_queue):
+        executor = JobFinalScriptExecutor(self, task_output_download_queue)
+        return executor.run_execution()
 
     def __repr__(self):
         return '<Job (id=%s, status=%s)>' % (self.id, self.status)

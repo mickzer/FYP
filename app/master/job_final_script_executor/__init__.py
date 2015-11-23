@@ -51,9 +51,9 @@ class JobFinalScriptExecutor(Executor):
             os.makedirs(self.job_dir+'output/')
         #send the STDOUT to the output file for running the function
         f = open(self.job_dir+'output/final_script_output', 'w+')
-        sys.stdout = f
         #give 3 attempts at running task
         for i in range(0,3):
+            sys.stdout = f
             try:
                 final_script(task_outputs, log)
                 break
@@ -61,7 +61,8 @@ class JobFinalScriptExecutor(Executor):
                 #claim back the STDOUT
                 sys.stdout = sys.__stdout__
                 log.error('Final Script Failed on Attempt %s' % (i), exc_info=True)
-                return False
+                if i == 3:
+                    return False
         #claim back the STDOUT
         sys.stdout = sys.__stdout__
         log.info('Final Script Execution Completed')
@@ -109,3 +110,6 @@ class JobFinalScriptExecutor(Executor):
     def after_execute(self):
         r = super(JobFinalScriptExecutor, self).after_execute()
         return r and self.delete_task_data_s3()
+
+    def failed_execution(self):
+        pass

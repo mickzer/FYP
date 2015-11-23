@@ -31,7 +31,11 @@ class Executor:
     def after_execute(self):
         return self.upload_output() and self.delete_local_data()
 
-    def run_execution(self):
+    @abstractmethod
+    def failed_execution(self):
+        pass
+
+    def run_stages(self):
         log.info('Starting Before-Execute Stage')
         if not self.before_execute():
             return False
@@ -44,4 +48,9 @@ class Executor:
         if not self.after_execute():
             return False
         log.info('Finished After-Execute Stage')
+
+    def run_execution(self):
+        if not self.run_stages():
+            self.failed_execution()
+            return False
         return True

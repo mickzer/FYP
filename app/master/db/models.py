@@ -63,6 +63,7 @@ class Job(Base):
     finished = Column(DateTime)
     status = Column(String(50), nullable=False, default='created')
     failed_tasks_threshold = Column(Integer, default=1)
+    task_split_size = Column(Integer, default=134217728)
     tasks = relationship('Task', backref=backref('job'), cascade='delete')
     #will be set on call of submit
     input_dir = None

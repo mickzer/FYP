@@ -48,6 +48,7 @@ class Executor:
         if not self.after_execute():
             return False
         log.info('Finished After-Execute Stage')
+        return True
 
     def run_execution(self):
         if not self.run_stages():

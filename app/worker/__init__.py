@@ -6,6 +6,7 @@ from worker.message_manager import MessageManager
 from worker.task_executor import TaskExecutor
 from worker.worker_logger import WorkerLoggingHandler
 from aws.sqs import new_tasks_queue
+from aws.s3 import s3
 
 class Worker:
     def __init__(self):
@@ -18,6 +19,11 @@ class Worker:
             task = new_tasks_queue.poll()
             #remove the SQS details container
             task=task['data']
+            #check S3 for the task script as a missing task script means a
+            #failed job and the task should be discarded
+            if not s3.exists('job-'+task['job_id']+'/'+task['job_id']+'.py'):
+                log.info('Discarding Task %s for Job <%s>' % (task['task_id'], task['job_id']))
+                new_tasks_queue.delete_message()
             #insert job details into the logger
             self.worker_handler.job_id = task['job_id']
             self.worker_handler.task_id = task['task_id']

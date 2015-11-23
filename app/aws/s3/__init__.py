@@ -18,6 +18,14 @@ class S3:
 		except Exception, e:
 			log.error('S3 Error: %s (%s)' % (str(e), self.bucket_name), exc_info=True)
 
+	def exists(self, key):
+		try:
+			k = self.bucket.get_key(key)
+			return True if k else False
+		except Exception, e:
+			log.error('S3 Error: %s (%s)' % (str(e), self.bucket_name), exc_info=True)
+			return False
+
 	def copy(self, src_key, dest_key):
 		if src_key[0] == '/':
 			src_key=src_key[1:]

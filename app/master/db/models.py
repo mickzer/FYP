@@ -62,11 +62,16 @@ class Job(Base):
     created = Column(DateTime, default=datetime.utcnow(), nullable=False)
     finished = Column(DateTime)
     status = Column(String(50), nullable=False, default='created')
+    failed_tasks_threshold = Column(Integer, default=1)
     tasks = relationship('Task', backref=backref('job'), cascade='delete')
     #will be set on call of submit
     input_dir = None
 
     def submit(self):
+        #copy task script to the job folder
+        log.info('Copying Executable to the S3 Job Folder')
+        s3.copy(self.executable_key_path, 'job-'+self.id+'/'+self.id+'.py')
+        log.info('Creating Tasks for Job: %s' % (self))
         #set the input dir, don't do this until now as a
         #job must be commited before it has an id
         self.input_dir = global_conf.CWD+'job-'+self.id+'/input/'
@@ -134,9 +139,7 @@ class Job(Base):
     def finish(self, task_output_download_queue=None):
             if self.final_script and task_output_download_queue:
                 if not self._execute_final_script(task_output_download_queue):
-                    self.status = 'failed'
-                    self.finished = datetime.utcnow()
-                    session.commit()
+                    self.mark_as_failed()
                     return False
             self.status = 'completed'
             self.finished = datetime.utcnow()
@@ -147,6 +150,20 @@ class Job(Base):
     def _execute_final_script(self, task_output_download_queue):
         executor = JobFinalScriptExecutor(self, task_output_download_queue)
         return executor.run_execution()
+
+    def mark_as_failed(self):
+        self.status = 'failed'
+        self.finished = datetime.utcnow()
+        session.commit()
+        log.info('Deleting Task Script on S3')
+        s3.delete('job-'+self.id+'/'+self.id+'.py')
+        log.info('Deleted Task Script on S3')
+        log.info('Job <%s> Failed' % (self.id))
+
+    def is_running(self):
+        if self.status == 'completed' or self.status == 'failed':
+            return False
+        return True
 
     def __repr__(self):
         return '<Job (id=%s, status=%s)>' % (self.id, self.status)

@@ -155,9 +155,19 @@ class Job(Base):
         self.status = 'failed'
         self.finished = datetime.utcnow()
         session.commit()
+        #delete task script on s3
         log.info('Deleting Task Script on S3')
         s3.delete('job-'+self.id+'/'+self.id+'.py')
         log.info('Deleted Task Script on S3')
+        #delete input splits on s3
+        log.info('Deleting Input Splits on S3')
+        s3.delete_directory('job-'+self.id+'/split_input/')
+        log.info('Deleted Input Splits on S3')
+        #mark all unreached tasks as discarded
+        discarded_tasks = session.query(Task).filter(and_(Task.job_id == self.id, Task.status == 'submitted')).all()
+        for task in discarded_tasks:
+            task.status = 'discarded'
+        session.commit()
         log.info('Job <%s> Failed' % (self.id))
 
     def is_running(self):

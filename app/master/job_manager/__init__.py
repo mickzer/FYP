@@ -25,8 +25,4 @@ def submit_job(job_id):
     job = session.query(Job).filter(Job.id == job_id).first()
     if job:
         log.info('Submitting Job %s' % (job))
-        #copy script to the job folder
-        log.info('Copying Executable to the S3 Job Folder')
-        s3.copy(job.executable_key_path, 'job-'+job.id+'/'+job.id+'.py')
-        log.info('Creating Tasks for Job: %s' % (job))
         job.submit()

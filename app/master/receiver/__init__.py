@@ -38,15 +38,19 @@ class Receiver:
 
     def process_task_output(self, msg):
         task = session.query(Task).filter(Task.id == msg['data']['id']).first()
-        if task:
+        if task and task.job.is_running():
             task.status = msg['data']['status']
             task.finished = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
             session.commit()
             #download output if it was a successful task and job has a final script
             if task.status == 'completed' and task.job.final_script:
                 self.downloader.add(task.job.id, 'job-'+task.job_id+'/task_output/'+str(task.task_id))
-            if task.status != 'completed':
-                print 'NOOOOOOOOOOOOO!!!!'
+            elif task.status == 'failed':
+                #check to see if we have reached the failed task threshold
+                failed_tasks_count = session.query(Task).filter(Task.status == 'failed').count()
+                #mark job as failed if we've hit the threshold
+                if failed_tasks_count >= task.job.failed_tasks_threshold:
+                    task.job.mark_as_failed()
             workers_messaging_queue.delete_message()
 
             #check if the whole job is completed

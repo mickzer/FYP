@@ -15,6 +15,7 @@ class WorkerLoggingHandler(logging.Handler):
 
     def emit(self, record):
         #dont send SQS log messages to SQS
+        #think this code is faulty
         relpath = os.path.relpath(record.pathname)
         if relpath == 'aws/sqs/__init__.py':
             return

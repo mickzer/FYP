@@ -24,6 +24,7 @@ class Worker:
             if not s3.exists('job-'+task['job_id']+'/'+task['job_id']+'.py'):
                 log.info('Discarding Task %s for Job <%s>' % (task['task_id'], task['job_id']))
                 new_tasks_queue.delete_message()
+                continue
             #insert job details into the logger
             self.worker_handler.job_id = task['job_id']
             self.worker_handler.task_id = task['task_id']

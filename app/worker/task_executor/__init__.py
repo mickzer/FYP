@@ -55,17 +55,18 @@ class TaskExecutor(Executor):
         task_script = getattr(__import__(self.task['job_id'], fromlist=['run']), 'run')
         #send the STDOUT to the output file for running the function
         f = open(self.task_dir+'output', 'w+')
-        sys.stdout = f
         #give 3 attempts at running task
         for i in range(0,3):
+            sys.stdout = f
             try:
                 task_script(input_split, log)
                 break
             except Exception, e:
                 #claim back the STDOUT
                 sys.stdout = sys.__stdout__
-                log.error('Task Script Failed on Attempt %s' % (i), exc_info=True)
-                return False
+                log.error('Task Script Failed on Attempt %s' % (i+1), exc_info=True)
+                if i == 2:
+                    return False
         #claim back the STDOUT
         sys.stdout = sys.__stdout__
         log.info('Script Execution Completed')
@@ -107,3 +108,11 @@ class TaskExecutor(Executor):
     def after_execute(self):
         r = super(TaskExecutor, self).after_execute()
         return r and self.message_completion() and self.delete_task()
+
+    def failed_execution(self):
+        #add failed task message
+        log.info('Adding task failure to SQS Queue')
+        self.task['status'] = 'failed'
+        workers_messaging_queue.add_message(self.task, msg_type='task')
+        #delete task
+        new_tasks_queue.delete_message()

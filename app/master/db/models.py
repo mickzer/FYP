@@ -117,7 +117,7 @@ class Job(Base):
                 new_file_path = file_path[:file_path.rfind('/')+1]+file_name[0]+'_'+file_name[1]
                 os.rename(file_path, new_file_path)
                 #split file with block size using numerical indexes with the file prefix as split prefixes ie. file_name.txt -> file_name0, file_name1...
-                cmd = "split %s -b %s -d %s" % (os.path.basename(new_file_path), global_conf.SPLIT_SIZE, os.path.splitext(os.path.basename(new_file_path))[0])
+                cmd = "split %s -b %s -d %s" % (os.path.basename(new_file_path), self.task_split_size, os.path.splitext(os.path.basename(new_file_path))[0])
                 process = subprocess.Popen(cmd.split(), cwd=self.input_dir, stdout=subprocess.PIPE)
                 #wait until the split finishes
                 process.wait()

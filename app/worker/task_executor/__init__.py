@@ -1,7 +1,7 @@
 import logging
 log = logging.getLogger('root_logger')
 
-import subprocess, os, shutil, sys, global_conf
+import subprocess, os, shutil, sys, traceback, global_conf
 from aws.s3 import s3
 from aws.sqs import workers_messaging_queue, new_tasks_queue
 from executor import Executor
@@ -64,7 +64,7 @@ class TaskExecutor(Executor):
             except Exception, e:
                 #claim back the STDOUT
                 sys.stdout = sys.__stdout__
-                log.error('Task Script Failed on Attempt %s' % (i+1), exc_info=True)
+                log.error('Task Script Failed on Attempt %s:\n%s' % (i+1, traceback.format_exc()))
                 if i == 2:
                     return False
         #claim back the STDOUT

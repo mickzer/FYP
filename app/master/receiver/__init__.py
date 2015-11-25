@@ -2,14 +2,14 @@ import logging
 log = logging.getLogger('root_logger')
 
 from aws.sqs import workers_messaging_queue
-from master.db.models import session, Task, Job, WorkerLog
+from master.db.models import session, Task, Job, Log
 from datetime import datetime
 from master.async_downloader import AsyncDownloader
 
 class Receiver:
-
     def __init__(self):
         self.downloader = AsyncDownloader()
+        self.downloader.setDaemon(True)
 
     def receive(self):
         log.info('Polling workers messaging queue')
@@ -29,7 +29,8 @@ class Receiver:
 
     def log(self, msg):
         #add to DB
-        l=WorkerLog(**msg['data'])
+        msg['data']['type'] = 'worker'
+        l=Log(**msg['data'])
         l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
         session.add(l)
         session.commit()

@@ -36,10 +36,10 @@ def provision_job(name, executable_key_path, input_key_path, final_script_key_pa
 
 @cli.command()
 def receive():
-    from master.receiver import Receiver
+    from master import Master
+    m=Master()
     log.info('Starting Receiver')
-    r = Receiver()
-    r.receive()
+    m.receive()
 
 @cli.command()
 def delete_worker_messages():

@@ -28,8 +28,5 @@ class WorkerLoggingHandler(logging.Handler):
             data['job_id'] = self.job_id
             data['task_id'] = self.task_id
 
-        self.publish(data)
-
-    def publish(self, data):
         data['instance_id'] = self.instance_id
         workers_messaging_queue.add_message(data, msg_type='log')

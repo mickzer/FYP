@@ -1,65 +1,83 @@
 import logging
 log = logging.getLogger('root_logger')
 
+import threading, time
 from aws.sqs import workers_messaging_queue
-from master.db.models import session, Task, Job, Log
+from master.db.models import Session, Task, Job, Log
 from datetime import datetime
-from master.async_downloader import AsyncDownloader
 
-class Receiver:
-    def __init__(self):
-        self.downloader = AsyncDownloader()
-        self.downloader.setDaemon(True)
 
-    def receive(self):
+class Receiver(threading.Thread):
+    def __init__(self, job_big_operation_controller, async_downloader):
+        threading.Thread.__init__(self)
+        #should prob throw exception is these are null
+        self.job_big_operation_controller = job_big_operation_controller
+        self.async_downloader = async_downloader
+
+    def run(self):
         log.info('Polling workers messaging queue')
-        #Async downlaoder to download task outputs
-        #as they are reported
-        self.downloader.start()
         while True:
             #poll queue
             msg=workers_messaging_queue.poll()
             log.info('Received worker message')
             log.debug(msg)
             if 'type' in msg:
+                self.session = Session()
+                #skip it if the job no longer exists
+                if 'job_id' in msg['data'] and not self.session.query(Job).filter(Job.id == msg['data']['job_id']).first():
+                    workers_messaging_queue.delete_message()
+                    continue
                 if msg['type'] == 'log':
                     self.log(msg)
                 elif msg['type'] == 'task':
                     self.process_task_output(msg)
+                self.session.close()
+            time.sleep(0.01)
 
     def log(self, msg):
         #add to DB
         msg['data']['type'] = 'worker'
         l=Log(**msg['data'])
         l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
-        session.add(l)
-        session.commit()
+        self.session.add(l)
+        self.session.commit()
         #delete message from SQS
         workers_messaging_queue.delete_message()
 
     def process_task_output(self, msg):
-        task = session.query(Task).filter(Task.id == msg['data']['id']).first()
+        task = self.session.query(Task).filter(Task.id == msg['data']['id']).first()
         if task and task.job.is_running():
+            job = task.job
+            #need to give the instances the SQLAlchemy Session
+            task.set_session(self.session)
+            job.set_session(self.session)
             task.status = msg['data']['status']
             task.finished = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
-            session.commit()
+            self.session.commit()
+            if msg['data']['status'] == 'executing':
+                task.started = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
+                self.session.commit()
+                log.info('%s Started Executing at %s' % (task, msg['create_time']))
             #download output if it was a successful task and job has a final script
-            if task.status == 'completed' and task.job.final_script:
-                self.downloader.add(task.job.id, 'job-'+task.job_id+'/task_output/'+str(task.task_id))
+            elif task.status == 'completed' and job.final_script:
+                self.async_downloader.add(job.id, task.task_id)
             elif task.status == 'failed':
                 #check to see if we have reached the failed task threshold
-                failed_tasks_count = session.query(Task).filter(Task.status == 'failed').count()
+                failed_tasks_count = self.session.query(Task).filter(Task.status == 'failed').count()
                 #mark job as failed if we've hit the threshold
-                if failed_tasks_count >= task.job.failed_tasks_threshold:
-                    task.job.mark_as_failed()
+                if failed_tasks_count >= job.failed_tasks_threshold:
+                    job.mark_as_failed()
             workers_messaging_queue.delete_message()
 
             #check if the whole job is completed
-            if task.job.all_tasks_completed():
-                log.info('Tasks Finished for Job <%s>' % task.job.id)
-                task_output_download_queue = None
-                if task.job.final_script:
-                    task_output_download_queue = self.downloader.pause(task.job.id)
-                task.job.finish(task_output_download_queue=task_output_download_queue)
-                if self.downloader.paused:
-                    self.downloader.resume()
+            if job.all_tasks_completed():
+                log.info('Tasks Finished for %s' % job)
+                job.status = 'tasks completed'
+                self.session.commit()
+                if job.final_script:
+                    #remove job from this threads session
+                    self.session.expunge(job)
+                    #give it to the big op controller
+                    self.job_big_operation_controller.add(job)
+                else:
+                    pass

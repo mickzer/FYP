@@ -42,6 +42,12 @@ def receive():
     m.receive()
 
 @cli.command()
+def assume_master():
+    from master import Master
+    master=Master()
+    master.start()
+
+@cli.command()
 def delete_worker_messages():
     from aws.sqs import workers_messaging_queue
     workers_messaging_queue.delete_all_messages()

@@ -1,6 +1,6 @@
 #app confs
 CWD = '/home/ec2-user/fyp/'
-SPLIT_SIZE=134217728 
+SPLIT_SIZE=128000000 #128 Mb
 #aws confs
 REGION = 'eu-west-1'
 #should be set on instance first boot

@@ -4,13 +4,13 @@ log = logging.getLogger('root_logger')
 import global_conf, os, shutil, sys
 from aws.s3 import s3
 from executor import Executor
+from sqlalchemy import and_, not_
 
 class JobFinalScriptExecutor(Executor):
 
-    def __init__(self, job, task_output_download_queue):
+    def __init__(self, job):
         Executor.__init__(self)
         self.job = job
-        self.task_output_download_queue = task_output_download_queue
         self.job_module = global_conf.CWD+'app/'+self.job.id+'/'
         self.job_dir = global_conf.CWD+'job-'+self.job.id+'/'
 
@@ -29,12 +29,17 @@ class JobFinalScriptExecutor(Executor):
         return False
 
     def get_input(self):
-        #download all files in the queue - the rest will have been
-        #asynchronously downloaded
-        while not self.task_output_download_queue.empty():
-            #get and download file
-            f = self.task_output_download_queue.get()
-            if not s3.get(f, file_path=global_conf.CWD+f):
+        #download all files not in the list of downloaded failed_tasks_count
+        if not self.job.downloaded_task_outputs:
+            self.job.downloaded_task_outputs = list()
+        #get tasks whos outputs haven't been downloaded yet
+        #temporarily sticking this import here to avoid circular import
+        from master.db.models import Task, Job
+        tasks = self.job.session.query(Task).filter(and_(Job.id == self.job.id, not_(Task.task_id.in_(self.job.downloaded_task_outputs)))).all()
+        for task in tasks:
+            path = 'job-'+self.job.id+'/task_output/' + str(task.task_id)
+            #download file
+            if not s3.get(path, file_path=global_conf.CWD+path):
                 return False
         return True
 

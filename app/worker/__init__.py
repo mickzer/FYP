@@ -5,7 +5,7 @@ from worker.sqs_poller import poll
 from worker.message_manager import MessageManager
 from worker.task_executor import TaskExecutor
 from worker.worker_logger import WorkerLoggingHandler
-from aws.sqs import new_tasks_queue
+from aws.sqs import new_tasks_queue, workers_messaging_queue
 from aws.s3 import s3
 
 class Worker:
@@ -32,8 +32,12 @@ class Worker:
             #create message manager
             m = MessageManager()
             m.start()
-            #create executor and run
+            #create executor
             executor = TaskExecutor(task)
+            #send task message to record the start time of the task
+            task['status'] = 'executing'
+            workers_messaging_queue.add_message(task, msg_type='task')
+            #execute the task
             executor.run_execution()
             log.info('Finished Task')
             #reset loggers task and job ids

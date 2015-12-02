@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+  <link href="/static/styles.css" rel="stylesheet" type="text/css" />
+  <script src="https://code.jquery.com/jquery.min.js"></script>
+  <title>FYP</title>
+</head>
+<body>
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">FYP</a>
+      </div>
+
+      <!-- Collect the nav links, forms, and other content for toggling -->
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li><a href="#">Nodes</a></li>
+          <li class="view-jobs"><a href="#">View Jobs</a></li>
+          <li class="create-job"><a href="#">Create New Job</a></li>
+        </ul>
+      </div><!-- /.navbar-collapse -->
+    </div><!-- /.container-fluid -->
+  </nav>
+  <div class="container-fluid">
+    <div id="main-content" class="col-md-12 col-centered">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 id="panel-title" class="panel-title">Loading...</h3>
+        </div>
+        <div id="panel-body" class="panel-body">
+          Loading...
+        </div>
+      </div>
+    </div>
+  </div>
+  {% raw %}
+  <!-- Handlebars Templates -->
+  <!-- View Jobs UI -->
+  <script id="jobs-table-mkup" type="text/x-handlebars-template">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Finished</th>
+          <th>Failed Tasks Threshold</th>
+          <th>Task Split Size</th>
+          <th>Input Key</th>
+          <th>Task Executable</th>
+          <th>Final Script</th>
+          <th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each jobs}}
+        {{#isCompleted status}}
+          <tr class="success">
+        {{else}}
+          {{#isExecuting status}}
+            <tr class="info">
+          {{else}}
+            <tr>
+          {{/isExecuting}}
+        {{/isCompleted}}
+          <td>{{id}}</td>
+          <td>{{name}}</td>
+          <td>{{status}}</td>
+          <td>{{created}}</td>
+          <td>{{finished}}</td>
+          <td>{{failed_tasks_threshold}}</td>
+          <td>{{task_split_size}}</td>
+          <td>{{input_key_path}}</td>
+          <td>{{executable_key_path}}</td>
+          <td>{{final_script}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </script>
+  <!-- Create Job UI -->
+  <script id="create-job-form-mkup" type="text/x-handlebars-template">
+    <form id="create-job" class="form-horizontal">
+  		<!-- Job Name -->
+  		<div class="form-group">
+  			<label for="name" class="col-sm-2 control-label">Job Name*</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="name" placeholder="Job Name" required>
+  	    </div>
+  		</div>
+      <!-- Input Key Path -->
+      <div class="form-group">
+  			<label for="input_key_path" class="col-sm-2 control-label">Input Data Key Path*</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="input_key_path" placeholder="Input Data Key Path" required pattern="(\/.*\/)*">
+  	    </div>
+  		</div>
+      <!-- Task Executable Path -->
+      <div class="form-group">
+  			<label for="job-name" class="col-sm-2 control-label">Task Executable Key Path*</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="executable_key_path" placeholder="Task Executable Key Path" required pattern="(\/.+\/)*.+\.py$">
+  	    </div>
+  		</div>
+      <!-- Final Script Path -->
+      <div class="form-group">
+  			<label for="job-name" class="col-sm-2 control-label">Final Script Key Path*</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="final_script" placeholder="Task Executable Key Path" pattern="(\/.+\/)*.+\.py$">
+  	    </div>
+  		</div>
+      <!-- Failed Task Threshold -->
+      <div class="form-group">
+  			<label for="job-name" class="col-sm-2 control-label">Failed Task Threshold</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="failed_tasks_threshold" placeholder="Failed Task Threshold: Default 0" pattern="[0-9]+">
+  	    </div>
+  		</div>
+      <!-- Task Split Size -->
+      <div class="form-group">
+  			<label for="job-name" class="col-sm-2 control-label">Task Split Size (Bytes)</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="task_split_size" placeholder="Task Split Size: Default 128000000 (128Mb)" pattern="[0-9]+">
+  	    </div>
+  		</div>
+  		<!-- Submit button -->
+  		<div class="form-group">
+  			<div class="col-sm-offset-2 col-sm-10">
+					<input type="submit" class="btn btn-success" value="Submit"/>
+				 </div>
+  		</div>
+  	</form>
+  </script>
+  <!-- END Handlebars Templates -->
+  {% endraw %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.5/handlebars.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+  <script src="/static/main.js"></script>
+</body>
+</html>

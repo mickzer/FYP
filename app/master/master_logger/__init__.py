@@ -1,6 +1,21 @@
 import logging, threading, Queue, time, requests
 from datetime import datetime
-from master.db.models import session, Log
+from master.db.models import Session, Log
+
+def create_master_logger(name):
+    formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
+
+    handler = logging.StreamHandler()
+
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(MasterLoggingHandler())
+
+    return logger
+
 
 class AsyncDbPublisher(threading.Thread):
     """Container for threading handlers to make it run
@@ -12,11 +27,13 @@ class AsyncDbPublisher(threading.Thread):
 
     def run(self):
         while True:
-           data = self._queue.get(True)
-           l=Log(**data)
-           session.add(l)
-           session.commit()
-           time.sleep(0.01)
+            session = Session()
+            data = self._queue.get(True)
+            l=Log(**data)
+            session.add(l)
+            session.commit()
+            session.close()
+            time.sleep(0.01)
 
     def publish(self, data):
         self._queue.put(data)

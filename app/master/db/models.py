@@ -186,22 +186,21 @@ class Job(Base, SerializableBase):
         #check if all tasks are finished
         return self.session.query(Task).filter(and_(Task.job_id == self.id, Task.status != 'completed')).count()  == 0
 
-    def finish(self):
-        print 'HERE!'
-        if self.final_script:
-            if not self._execute_final_script():
-                self.mark_as_failed()
-                return False
+    def execute_final_script(self):
+        self.status = 'executing final script'
+        self.session.commit()
+        executor = JobFinalScriptExecutor(self)
+        if not executor.run_execution():
+            self.mark_as_failed()
+        else:
+            self.mark_as_completed()
+
+    def mark_as_completed(self):
         self.status = 'completed'
         self.finished = datetime.utcnow()
         self.session.commit()
         log.info('Job <%s> Completed' % (self.id))
         return True
-
-    def _execute_final_script(self):
-        print 'HERE NOW'
-        executor = JobFinalScriptExecutor(self)
-        return executor.run_execution()
 
     def mark_as_failed(self):
         self.status = 'failed'

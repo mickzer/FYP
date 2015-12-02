@@ -33,7 +33,7 @@ class JobBigOperationController(threading.Thread):
                 job.set_session(session)
                 #pause async_downloader
                 job.downloaded_task_outputs = self.async_downloader.pause(job.id)
-                job.finish()
+                job.execute_final_script()
             else:
                 #raise some exception
                 log.error('%s shouldn\'t be here' % (job))

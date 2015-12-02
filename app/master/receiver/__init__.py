@@ -80,4 +80,4 @@ class Receiver(threading.Thread):
                     #give it to the big op controller
                     self.job_big_operation_controller.add(job)
                 else:
-                    pass
+                    job.mark_as_completed()

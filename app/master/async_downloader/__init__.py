@@ -74,4 +74,4 @@ class AsyncDownloader(threading.Thread):
                     #delete the key from self.queued_files if queue is empty
                     if q[job_id].empty():
                         del self.queued_files[job_id]
-                time.sleep(0.01)
+                time.sleep(0.1)

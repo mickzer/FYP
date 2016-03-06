@@ -8,11 +8,6 @@ from aws.vpc import vpc
 
 def launch_workers():
     log.info('Creating Workers')
-    #hard coding security groups ftm
-    #will need to get this progrmatically later
-    sgs = ['sg-36933c52']
-    #hard coding instace profile too ftm
-    instance_profile = 'MyRole'
     #get user data from file
     user_data=''
     try:
@@ -22,17 +17,18 @@ def launch_workers():
         log.error('Couldn\'t open user data script for workers')
     #create launch configuration for workers
     lc = autoscale.create_launch_configuration(
-        lc_name=global_conf.WORKER_LAUNCH_CONFIG,
-        sg_ids = sgs,
+        name=global_conf.WORKER_LAUNCH_CONFIG,
+        image_id=global_conf.WORKER_AMI_ID,
+        security_groups=global_conf.WORKER_SECURITY_GROUPS,
         instance_type=global_conf.WORKER_EC2_TYPE,
-        profile=instance_profile,
-        user_data=user_data
+        instance_profile_name=global_conf.WORKER_INSTANCE_PROFILE,
+        user_data=user_data,
+        key_name=global_conf.WORKER_KEY_PAIR,
+        spot_price=global_conf.WORKER_SPOT_PRICE,
+        associate_public_ip_address=True
     )
-    #not sure how I will be getting the vpc
-    #id yet so hard coding ftm
-    vpc_id = 'vpc-3c4a3a59'
     #get subnets from api
-    subnets = vpc.get_subnets(vpc_id)
+    subnets = vpc.get_subnets(global_conf.VPC_ID)
     #create asg with launch config
     if lc:
         autoscale.create_autoscaling_group(

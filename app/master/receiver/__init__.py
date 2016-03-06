@@ -52,15 +52,17 @@ class Receiver(threading.Thread):
             task.set_session(self.session)
             job.set_session(self.session)
             task.status = msg['data']['status']
-            task.finished = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
             self.session.commit()
             if msg['data']['status'] == 'executing':
                 task.started = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
                 self.session.commit()
                 log.info('%s Started Executing at %s' % (task, msg['create_time']))
             #download output if it was a successful task and job has a final script
-            elif task.status == 'completed' and job.final_script:
-                self.async_downloader.add(job.id, task.task_id)
+            elif task.status == 'completed':
+                if job.final_script:
+                    self.async_downloader.add(job.id, task.task_id)
+                task.finished = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
+                self.session.commit()
             elif task.status == 'failed':
                 #check to see if we have reached the failed task threshold
                 failed_tasks_count = self.session.query(Task).filter(Task.status == 'failed').count()
@@ -80,4 +82,4 @@ class Receiver(threading.Thread):
                     #give it to the big op controller
                     self.job_big_operation_controller.add(job)
                 else:
-                    job.mark_as_completed()
+                    job.task_only_completion()

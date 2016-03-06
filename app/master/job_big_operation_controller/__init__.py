@@ -4,6 +4,7 @@ log = logging.getLogger('root_logger')
 import threading, time
 from Queue import Queue
 from master.db.models import Session
+from master.job_data_preparer import JobDataPreparer
 
 class JobBigOperationController(threading.Thread):
     def __init__(self, async_downloader):
@@ -11,13 +12,15 @@ class JobBigOperationController(threading.Thread):
         self.queue = Queue()
         #should prob throw exception is this is null
         #or not running
-        self.async_downloader =  async_downloader
+        self.async_downloader = async_downloader
 
     def add(self, job):
         self.queue.put(job)
+        print 'here'
         log.info('Big Job Operation Queued for %s' % (job))
         return True
 
+    #NEED TO PAUSE ON JOB CREATION TOO
     def run(self):
         log.info('JobBigOperationController Started')
         while True:
@@ -28,14 +31,17 @@ class JobBigOperationController(threading.Thread):
             if job.status == 'created':
                 job.set_session(session)
                 job.submit()
+                data_preparer = JobDataPreparer(job)
+                data_preparer.prepare_data()
+
             #Job in tasks completed needs to have it's final script executed
             elif job.status == 'tasks completed':
                 job.set_session(session)
                 #pause async_downloader
                 job.downloaded_task_outputs = self.async_downloader.pause(job.id)
                 job.execute_final_script()
+                self.async_downloader.resume()
             else:
                 #raise some exception
                 log.error('%s shouldn\'t be here' % (job))
-            self.async_downloader.resume()
             time.sleep(0.01)

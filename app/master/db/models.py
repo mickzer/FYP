@@ -4,7 +4,7 @@ log = logging.getLogger('root_logger')
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, PickleType
 from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import and_
@@ -53,18 +53,17 @@ class SQLAlchemyEncoder(json.JSONEncoder):
             return obj.strftime('%Y-%m-%dT%H:%M:%SZ')
         return json.JSONEncoder.default(self, obj)
 
-
-
 class Task(Base, SerializableBase):
     __tablename__='task'
 
     id = Column(Integer, primary_key=True)
     task_id = Column(Integer)
     job_id = Column(String(36), ForeignKey('job.id'), nullable=False)
-    file_name = Column(String(256), nullable=False)
+    file_name = Column(String(256))
     status = Column(String(50), nullable=False, default='created')
     started = Column(DateTime)
     finished = Column(DateTime)
+    attributes = Column(PickleType)
 
     def set_session(self, session):
         self.session = session
@@ -76,7 +75,7 @@ class Task(Base, SerializableBase):
         """
         #s3 key is job-id/file
         s3.put(global_conf.CWD+'job-'+self.job_id+'/input/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
-        new_tasks_queue.add_message({'id':self.id, 'job_id':self.job_id, 'task_id':self.task_id, 'file_name':self.file_name})
+        new_tasks_queue.add_message({'id':self.id, 'attributes':self.attributes, 'job_id':self.job_id, 'task_id':self.task_id, 'file_name':self.file_name})
         try:
             self.status = 'submitted'
             self.session.commit()
@@ -94,6 +93,7 @@ class Job(Base, SerializableBase):
     name = Column(String(256), nullable=False)
     executable_key_path = Column(String(256), nullable=False)
     input_key_path = Column(String(256), nullable=False)
+    data_prep_script = Column(String(256))
     final_script = Column(String(256))
     created = Column(DateTime, default=datetime.utcnow(), nullable=False)
     finished = Column(DateTime)
@@ -115,72 +115,8 @@ class Job(Base, SerializableBase):
 
         log.info('Copying Executable to the S3 Job Folder')
         s3.copy(self.executable_key_path, 'job-'+self.id+'/'+self.id+'.py')
-        log.info('Creating Tasks for Job: %s' % (self))
-        #set the input dir, don't do this until now as a
-        #job must be commited before it has an id
-        self.input_dir = global_conf.CWD+'job-'+self.id+'/input/'
-        #download and split input data
-        self._split_input_data()
-        tasks = []
-        #create a task for each split
-        try:
-            for f in os.listdir(self.input_dir):
-                t=Task(job_id=self.id, file_name=f, task_id=f[f.rfind('_')+1:])
-                #-1 means the last element
-                self.session.add(t)
-                self.session.commit()
-                log.info('Created %s' % (t))
-                #give task the session to work with later
-                t.set_session(self.session)
-                tasks.append(t)
 
-            for task in tasks:
-                task.submit()
-
-            #delete input folder after tasks ha ve been created and
-            #splits saved to S3
-            shutil.rmtree(self.input_dir)
-
-            #job is submitted so mark as executing
-            self.status = 'executing tasks'
-            self.session.commit()
-
-        except Exception, e:
-            log.error('Error Creating Task', exc_info=True)
-
-    def _split_input_data(self):
-        log.info('Downloading & Splitting Input Data')
-        #-------
-        def split_file(file_path):
-            """Does a bash command to split a file_path
-            using the bash split command as it's probably more efficient
-            than anything python can do!
-            Only problem is that it makes windows a no go
-            """
-            log.info('Splitting file %s' % (file_path))
-            try:
-                #rename file to put _ at the end
-                #turns /input/asd.txt -> /input/asd_.txt
-                file_name = os.path.splitext(os.path.basename(file_path))
-                new_file_path = file_path[:file_path.rfind('/')+1]+file_name[0]+'_'+file_name[1]
-                os.rename(file_path, new_file_path)
-                #split file with block size using numerical indexes with the file prefix as split prefixes ie. file_name.txt -> file_name0, file_name1...
-                cmd = "split %s -b %s -d %s" % (os.path.basename(new_file_path), self.task_split_size, os.path.splitext(os.path.basename(new_file_path))[0])
-                process = subprocess.Popen(cmd.split(), cwd=self.input_dir, stdout=subprocess.PIPE)
-                #wait until the split finishes
-                process.wait()
-                #delete the original file afterwards
-                os.remove(new_file_path)
-            except Exception, e:
-                log.error('Error Splitting Input:', exc_info=True)
-        #-------
-        #download input directory from s3 into a folder input
-        r=s3.get_directory(self.input_key_path, self.input_dir)
-        log.info('Input files downloaded from S3')
-        #go through each file in the directory
-        for f in os.listdir(self.input_dir):
-            split_file(self.input_dir+f)
-        log.info('Finished Splitting Input')
+        #data is prepared from JobBigOperationController
 
     def all_tasks_completed(self):
         #check if all tasks are finished
@@ -194,6 +130,10 @@ class Job(Base, SerializableBase):
             self.mark_as_failed()
         else:
             self.mark_as_completed()
+
+    def task_only_completion(self):
+        self.mark_as_completed()
+
 
     def mark_as_completed(self):
         self.status = 'completed'

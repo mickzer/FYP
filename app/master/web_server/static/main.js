@@ -61,7 +61,7 @@ function view_tasks_ui() {
     $("#panel-body").empty().append(TASKS_TABLE({tasks: tasks}));
   }).fail(function(jqXHR, textStatus, errorThrown) {
     if(jqXHR.status) {
-      $("#panel-body").empty().append("<p>There a no tasks for this job yet.</p>");
+      $("#panel-body").empty().append("<p>There are no tasks for this job yet.</p>");
     }
   });
 }

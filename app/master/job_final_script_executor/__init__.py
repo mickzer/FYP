@@ -16,16 +16,15 @@ class JobFinalScriptExecutor(Executor):
 
 
     def get_script(self):
-        log.info('Getting Exceutable Script')
         #create job module folder
         if not os.path.isdir(self.job_module):
             os.makedirs(self.job_module)
-        log.info('Downloading Exceutable Script from S3')
+        log.info('Downloading Final Script from S3')
         #download script and create a module from it called the job_id
         if s3.get(self.job.final_script, file_path=self.job_module+'__init__.py'):
-            log.info('Exceutable Script Downloaded')
+            log.info('Final Script Downloaded')
             return True
-        log.error('Failed to Download Executable Script')
+        log.error('Failed to Download Final Script')
         return False
 
     def get_input(self):

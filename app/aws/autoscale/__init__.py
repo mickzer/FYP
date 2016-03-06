@@ -14,23 +14,14 @@ class AutoScale:
 			self.con = ec2_autoscale.connect_to_region(global_conf.REGION)
 		except Exception, e:
 			log.error('AutoScale Error', exc_info=True)
-	def create_launch_configuration(self, lc_name, sg_ids, instance_type, user_data=None, profile=None):
+	def create_launch_configuration(self, **kwargs):
 		try:
-			lc = LaunchConfiguration(
-				name=lc_name,
-				image_id='ami-69b9941e', #hard coding amazon linux ami ftm
-				security_groups=sg_ids,
-				instance_type=instance_type,
-				user_data=user_data,
-				instance_profile_name=profile,
-				associate_public_ip_address=True,
-				key_name='MyPair') #IAM ROLE
-				#add spot price & user datain the future bitches
+			lc = LaunchConfiguration(**kwargs)
 			self.con.create_launch_configuration(lc)
 			log.info('Created Launch Configuration - %s' % (lc.name))
 			return lc
 		except Exception, e:
-			log.error('Failed to Create Launch Configuration - %s' % (lc_name), exc_info=True)
+			log.error('Failed to Create Launch Configuration - %s' % (kwargs['name']), exc_info=True)
 			return False
 
 	def delete_launch_configuration(self, launch_conifg_name):

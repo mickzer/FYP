@@ -59,7 +59,7 @@ class TaskExecutor(Executor):
         for i in range(0,3):
             sys.stdout = f
             try:
-                task_script(input_split, log)
+                task_script(input_split, self.task['attributes'], log)
                 break
             except Exception, e:
                 #claim back the STDOUT

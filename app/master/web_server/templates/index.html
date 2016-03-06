@@ -168,7 +168,14 @@
       <div class="form-group">
   			<label for="input_key_path" class="col-sm-2 control-label">Input Data Key Path*</label>
   	    <div class="col-sm-10">
-  	    	<input type="text" class="form-control" name="input_key_path" placeholder="Input Data Key Path" required pattern="(\/.*\/)*">
+  	    	<input type="text" class="form-control" name="input_key_path" placeholder="Input Data Key Path" required">
+  	    </div>
+  		</div>
+      <!-- Data Prepatation Script Path -->
+      <div class="form-group">
+  			<label for="job-name" class="col-sm-2 control-label">Data Preperation Script Key Path</label>
+  	    <div class="col-sm-10">
+  	    	<input type="text" class="form-control" name="data_prep_script" placeholder="Data Preperation Script Key Path" pattern="(\/.+\/)*.+\.py$">
   	    </div>
   		</div>
       <!-- Task Executable Path -->
@@ -180,7 +187,7 @@
   		</div>
       <!-- Final Script Path -->
       <div class="form-group">
-  			<label for="job-name" class="col-sm-2 control-label">Final Script Key Path*</label>
+  			<label for="job-name" class="col-sm-2 control-label">Final Script Key Path</label>
   	    <div class="col-sm-10">
   	    	<input type="text" class="form-control" name="final_script" placeholder="Task Executable Key Path" pattern="(\/.+\/)*.+\.py$">
   	    </div>

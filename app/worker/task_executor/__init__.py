@@ -67,18 +67,23 @@ class TaskExecutor(Executor):
                 log.error('Task Script Failed on Attempt %s:\n%s' % (i+1, traceback.format_exc()))
                 if i == 2:
                     return False
+        #close the output file
+        f.close()
         #claim back the STDOUT
         sys.stdout = sys.__stdout__
         log.info('Script Execution Completed')
         return True
 
     def upload_output(self):
-        log.info('Uploading Task Output to S3')
-        key = '/job-'+self.task['job_id']+'/task_output/'+str(self.task['task_id'])
-        if s3.put(self.task_dir+'output', key):
-            return True
-        log.error('Failed to Upload Task Output')
-        return False
+        if os.stat(self.task_dir+'output').st_size > 0:
+            log.info('Uploading Task Output to S3')
+            key = '/job-'+self.task['job_id']+'/task_output/'+str(self.task['task_id'])
+            if s3.put(self.task_dir+'output', key):
+                return True
+            log.error('Failed to Upload Task Output')
+            return False
+        log.info('No Task Output Exists')
+        return True
 
     def delete_local_data(self):
         log.info('Deleting local task data')
@@ -114,5 +119,5 @@ class TaskExecutor(Executor):
         log.info('Adding task failure to SQS Queue')
         self.task['status'] = 'failed'
         workers_messaging_queue.add_message(self.task, msg_type='task')
-        #delete task
-        new_tasks_queue.delete_message()
+        self.delete_task()
+        self.delete_local_data()

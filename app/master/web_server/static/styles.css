@@ -14,3 +14,19 @@
   font-size: 18px;
   cursor: pointer;
 }
+
+.log-* {
+  font-size: 14px;
+}
+
+.log-info {
+  color: rgb(29, 108, 197);
+}
+
+.log-debug {
+  color: rgb(7, 156, 24);
+}
+
+.log-error {
+  color: rgb(219, 42, 42);
+}

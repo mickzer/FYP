@@ -91,7 +91,7 @@
               <ul class="dropdown-menu dropdown-menu-right">
                 <li class="view-tasks" data-job-id="{{id}}"><a href="#">View Tasks</a></li>
                 <li role="separator" class="divider"></li>
-                <li class="delete-job" data-job-id="{{id}}"><a href="#">Delete</a></li>
+                <li class="job-log" data-job-id="{{id}}"><a href="#">View Log</a></li>
               </ul>
             </div>
           </td>
@@ -118,15 +118,15 @@
       <tbody>
         {{#each tasks}}
         {{#isCompleted status}}
-          <tr class="success">
+          <tr id="task{{id}}" class="success">
         {{else}}
           {{#isExecuting status}}
-            <tr class="info">
+            <tr id="task{{id}}" class="info">
           {{else}}
             {{#isFailed status}}
-              <tr class="danger">
+              <tr id="task{{id}}" class="danger">
             {{else}}
-              <tr>
+              <tr id="task{{id}}">
             {{/isFailed}}
           {{/isExecuting}}
         {{/isCompleted}}
@@ -143,9 +143,7 @@
                 Actions<span class="caret"></span>
               </button>
               <ul class="dropdown-menu dropdown-menu-right">
-                <li class="view-tasks" data-job-id="{{id}}"><a href="#">Dunno Yet</a></li>
-                <li role="separator" class="divider"></li>
-                <li class="delete-job" data-job-id="{{id}}"><a href="#">Dunno Yet</a></li>
+                <li class="view-task-log" data-job-id="{{job_id}}" data-task-id="{{task_id}}"><a href="#">View Log</a></li>
               </ul>
             </div>
           </td>
@@ -153,6 +151,19 @@
         {{/each}}
       </tbody>
     </table>
+  </script>
+  <!-- View Task Log UI -->
+  <script id="task-log-mkup" type="text/x-handlebars-template">
+    <button id="log-back" type="button" class="btn btn-default" data-job-id="{{job_id}}" data-task-id="{{task_id}}">Back</button>
+    {{#each log_messages}}
+      <p class="log-{{lowercase level}}">{{instance_id}}: {{date}} - {{level}} - {{pathname}} - {{msg}}</p>
+    {{/each}}
+  </script>
+  <!-- View Job Log UI -->
+  <script id="job-log-mkup" type="text/x-handlebars-template">
+    {{#each log_messages}}
+      <p class="log-{{lowercase level}}">{{uppercase type}} {{taskDisplay task_message}} - {{instance_id}}: {{date}} - {{level}} - {{pathname}} - {{msg}}</p>
+    {{/each}}
   </script>
   <!-- Create Job UI -->
   <script id="create-job-form-mkup" type="text/x-handlebars-template">

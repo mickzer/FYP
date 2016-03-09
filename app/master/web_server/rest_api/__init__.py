@@ -1,7 +1,8 @@
 from flask import request
 from master.web_server import master_app, data
 from master.web_server.response_helpers import *
-from master.db.models import Session, Job, Task
+from master.db.models import Session, Job, Task, Log
+from sqlalchemy import and_
 import sqlalchemy.exc
 
 @master_app.route('/api/job/', methods=['GET', 'POST'])
@@ -35,10 +36,18 @@ def job(job_id=None):
         except:
             return internal_error(), 500
 
-@master_app.route('/api/job/<string:job_id>/tasks/', methods=['GET'])
-def task(job_id=None):
+@master_app.route('/api/job/<string:job_id>/task/<int:task_id>/log/', methods=['GET'])
+def task_log(job_id=None, task_id=-1):
     session = Session()
-    tasks = session.query(Task).filter(Task.job_id == job_id).all()
-    r = json_out(tasks) if tasks else (not_found(), 404)
+    logs = session.query(Log).filter(and_(Log.job_id == job_id, Log.task_id == task_id)).all()
+    r = json_out(logs) if logs else (not_found(), 404)
+    session.close()
+    return r
+
+@master_app.route('/api/job/<string:job_id>/log/', methods=['GET'])
+def job_log(job_id=None):
+    session = Session()
+    logs = session.query(Log).filter(Log.job_id == job_id).all()
+    r = json_out(logs) if logs else (not_found(), 404)
     session.close()
     return r

@@ -34,4 +34,4 @@ def after_request(response):
 def index():
     return render_template('index.html')
 
-from master.web_server.rest_api import job
+from master.web_server.rest_api import job, job_log, task_log

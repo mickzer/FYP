@@ -38,7 +38,10 @@ class Receiver(threading.Thread):
         #add to DB
         msg['data']['type'] = 'worker'
         l=Log(**msg['data'])
-        l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
+        try:
+            l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
+        except:
+            l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S')
         self.session.add(l)
         self.session.commit()
         #delete message from SQS

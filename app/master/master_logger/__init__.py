@@ -2,21 +2,6 @@ import logging, threading, Queue, time, requests
 from datetime import datetime
 from master.db.models import Session, Log
 
-def create_master_logger(name):
-    formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
-
-    handler = logging.StreamHandler()
-
-    handler.setFormatter(formatter)
-
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-    logger.addHandler(MasterLoggingHandler())
-
-    return logger
-
-
 class AsyncDbPublisher(threading.Thread):
     """Container for threading handlers to make it run
        Asychronously
@@ -24,15 +9,19 @@ class AsyncDbPublisher(threading.Thread):
     def __init__(self):
          threading.Thread.__init__(self)
          self._queue = Queue.Queue()
+         self.session = Session()
 
     def run(self):
+        count = 0
         while True:
-            session = Session()
             data = self._queue.get(True)
             l=Log(**data)
-            session.add(l)
-            session.commit()
-            session.close()
+            self.session.add(l)
+            count += 1
+            #buffer 10 insertions before committing
+            if(count == 10):
+                self.session.commit()
+                count = 0
             time.sleep(0.01)
 
     def publish(self, data):
@@ -46,19 +35,39 @@ class MasterLoggingHandler(logging.Handler):
     def __init__(self):
         logging.Handler.__init__(self)
         #asynchronously adds log messages to the DB
-        self.async_publisher = AsyncDbPublisher()
-        self.async_publisher.setDaemon(True)
-        self.async_publisher.start()
+        self._async_publisher = AsyncDbPublisher()
+        self._async_publisher.setDaemon(True)
+        self._async_publisher.start()
         #get the instance id from ec2 meta-data service
-        self.instance_id = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
+        self._instance_id = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
 
-    def emit(self, record):
+    def emit(self, record, **kwargs):
         data = {
             'msg':record.msg,
             'level':record.levelname,
             'pathname':record.pathname,
             'date': datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f') #unix time to datetime
         }
-        data['instance_id'] = self.instance_id
+        data['instance_id'] = self._instance_id
         data['type'] = 'master'
-        self.async_publisher.publish(data)
+        if 'job_id' in record.__dict__:
+            data['job_id'] = record.__dict__['job_id']
+        if 'task_id' in record.__dict__:
+            data['task_id'] = record.__dict__['task_id']
+        self._async_publisher.publish(data)
+
+master_logging_handler = MasterLoggingHandler()
+
+def create_master_logger(name):
+    formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
+
+    handler = logging.StreamHandler()
+
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(master_logging_handler)
+
+    return logger

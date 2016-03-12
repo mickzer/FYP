@@ -60,6 +60,7 @@ $(document).ready(function() {
 
   //refresh listeners
   $(document).on("click", ".tasks-reload", view_tasks_ui);
+  $(document).on("click", ".task-log-reload", view_task_log_ui);
 
   //back listeners
   $(document).on("click", "#log-back", view_tasks_ui);
@@ -73,7 +74,7 @@ function view_tasks_ui() {
   clearPanel();
   job_id = $(this).data("job-id");
   $("#panel-title").text("Tasks for Job "+job_id);
-  $("#panel-title").append('<i class="glyphicon glyphicon-refresh box-reload tasks-reload" data-job-id="'+job_id+'"></i>');
+  $("#panel-title").append('<i class="glyphicon glyphicon-refresh box-reload title-reloader tasks-reload" data-job-id="'+job_id+'"></i>');
   $.when(get_tasks(job_id)).done(function(job) {
     $("#panel-body").empty().append(TASKS_TABLE({tasks: job.tasks}));
     //calculate completion status
@@ -97,6 +98,7 @@ function view_task_log_ui() {
   job_id = $(this).data("job-id");
   task_id = $(this).data("task-id");
   $("#panel-title").text("Log for Task "+task_id+" of Job "+job_id);
+  $("#panel-title").append('<i class="glyphicon glyphicon-refresh box-reload title-reloader task-log-reload" data-job-id="'+job_id+'" data-task-id="'+task_id+'"></i>');
   $.when(get_task_log(job_id, task_id)).done(function(log_messages) {
     $("#panel-body").empty().append(TASK_LOG_UI({job_id: job_id, task_id: task_id, log_messages: log_messages}));
   }).fail(function(jqXHR, textStatus, errorThrown) {

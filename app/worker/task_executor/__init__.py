@@ -104,7 +104,7 @@ class TaskExecutor(Executor):
 
     def delete_task(self):
         log.info('Deleting task from new tasks SQS Queue')
-        if new_tasks_queue.delete_message():
+        if new_tasks_queue.delete_current_message():
             return True
         log.error('Failed to delete task from new tasks SQS Queue')
         return False

@@ -21,6 +21,7 @@ def create_master_app():
 
 master_app = create_master_app()
 #importable dict for shared stuff
+#can't get flask to work with anything but a dict
 data = {}
 #set mimetype to json for each response
 @master_app.after_request

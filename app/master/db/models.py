@@ -15,7 +15,7 @@ from aws.sqs import new_tasks_queue
 from master.job_final_script_executor import JobFinalScriptExecutor
 
 # con_str='mysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
-con_str='mysql+pymysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
+con_str = global_conf.DB_CON_STR
 engine = create_engine(con_str, pool_size=10)
 session_factory = sessionmaker(bind=engine)
 Session = scoped_session(session_factory)
@@ -73,6 +73,8 @@ class Task(Base, SerializableBase):
         """
         Add task to S3 and SQS and change status to submitted
         """
+        #set task_id in loging handler
+        master_logging_handler.set_task_id(self.task_id)
         #s3 key is job-id/file
         s3.put(global_conf.CWD+'job-'+self.job_id+'/input/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
         new_tasks_queue.add_message({'id':self.id, 'attributes':self.attributes, 'job_id':self.job_id, 'task_id':self.task_id, 'file_name':self.file_name})
@@ -82,6 +84,8 @@ class Task(Base, SerializableBase):
         except Exception, e:
             log.error('DB Error Submitting Task', exc_info=True)
         log.info('%s Submitted' % (self))
+        #unset task_id in logging handler
+        master_logging_handler.set_task_id(None)
 
     def __repr__(self):
         return '<Task (id=%s, job=%s, status=%s)>' % (self.id, self.job_id, self.status)
@@ -133,7 +137,6 @@ class Job(Base, SerializableBase):
 
     def task_only_completion(self):
         self.mark_as_completed()
-
 
     def mark_as_completed(self):
         self.status = 'completed'

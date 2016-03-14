@@ -1,5 +1,7 @@
 import logging, global_conf
+from master.master_logger import MasterLoggingAdapter
 log = logging.getLogger('root_logger')
+log = MasterLoggingAdapter(log)
 
 import subprocess, os, shutil, sys
 from aws.s3 import s3
@@ -9,6 +11,8 @@ class JobDataPreparer:
     def __init__(self, job):
         self.job = job
         self.input_dir = global_conf.CWD+'job-'+job.id+'/input/'
+        #ad job_id to log
+        log.set_job_id(job.id)
 
     def prepare_data(self):
         log.info('Preparing Job Data')
@@ -67,10 +71,12 @@ class JobDataPreparer:
                 #-1 means the last element
                 self.job.session.add(t)
                 self.job.session.commit()
+                log.set_task_id(t.id)
                 log.info('Created %s' % (t))
                 #give task the session to work with later
                 t.set_session(self.job.session)
                 tasks.append(t)
+                log.remove_task_id()
 
             for task in tasks:
                 task.submit()
@@ -82,7 +88,6 @@ class JobDataPreparer:
         self._get_prep_script()
         #get a r/w pointer to all the job input files
         input_files = [open(self.input_dir+f, 'r+') for f in os.listdir(self.input_dir)]
-        print input_files
         #import data prep script
         #equivalent to -> from job_id import prepare as custom_prepare
         custom_prepare = getattr(__import__(self.job.id, fromlist=['prepare']), 'prepare')

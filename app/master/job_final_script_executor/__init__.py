@@ -1,5 +1,7 @@
 import logging
+from master.master_logger import MasterLoggingAdapter
 log = logging.getLogger('root_logger')
+log = MasterLoggingAdapter(log)
 
 import global_conf, os, shutil, sys
 from aws.s3 import s3
@@ -13,7 +15,7 @@ class JobFinalScriptExecutor(Executor):
         self.job = job
         self.job_module = global_conf.CWD+'app/'+self.job.id+'/'
         self.job_dir = global_conf.CWD+'job-'+self.job.id+'/'
-
+        log.set_job_id(self.job.id)
 
     def get_script(self):
         #create job module folder

@@ -1,5 +1,34 @@
 import logging, threading, Queue, time, requests
 from datetime import datetime
+
+
+
+class MasterLoggingAdapter(logging.LoggerAdapter):
+    def __init__(self, log):
+        super(MasterLoggingAdapter, self).__init__(log, {})
+
+    def set_job_id(self, job_id):
+        self.extra['job_id'] = job_id
+
+    def remove_job_id(self):
+        del self.extra['job_id']
+
+    def set_task_id(self, task_id):
+        self.extra['task_id'] = task_id
+
+    def remove_task_id(self):
+        del self.extra['task_id']
+
+    def process(self, msg, kwargs):
+        kwargs['extra'] = self.extra
+        if 'job_id' in self.extra and 'task_id' in self.extra:
+            return '<Job: %s, Task: %s> %s' % (self.extra['job_id'], self.extra['task_id'], msg), kwargs
+        elif 'job_id' in self.extra:
+            return '<Job: %s> %s' % (self.extra['job_id'], msg), kwargs
+        else:
+            return msg, kwargs
+
+
 from master.db.models import Session, Log
 
 class AsyncDbPublisher(threading.Thread):
@@ -42,21 +71,22 @@ class MasterLoggingHandler(logging.Handler):
         self._instance_id = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
 
     def emit(self, record, **kwargs):
+        extra = record.__dict__
+        if 'db_ignore' in extra and extra['db_ignore']:
+            return
         data = {
             'msg':record.msg,
             'level':record.levelname,
             'pathname':record.pathname,
+            'instance_id': self._instance_id,
+            'type': 'master',
             'date': datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f') #unix time to datetime
         }
-        data['instance_id'] = self._instance_id
-        data['type'] = 'master'
-        if 'job_id' in record.__dict__:
-            data['job_id'] = record.__dict__['job_id']
-        if 'task_id' in record.__dict__:
-            data['task_id'] = record.__dict__['task_id']
+        if 'job_id' in extra:
+            data['job_id'] = extra['job_id']
+        if 'task_id' in extra:
+            data['task_id'] = extra['task_id']
         self._async_publisher.publish(data)
-
-master_logging_handler = MasterLoggingHandler()
 
 def create_master_logger(name):
     formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
@@ -68,6 +98,6 @@ def create_master_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
-    logger.addHandler(master_logging_handler)
+    logger.addHandler(MasterLoggingHandler())
 
     return logger

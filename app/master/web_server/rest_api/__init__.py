@@ -44,10 +44,17 @@ def task_log(job_id=None, task_id=-1):
     session.close()
     return r
 
-@master_app.route('/api/job/<string:job_id>/log/', methods=['GET'])
+@master_app.route('/api/job/<string:job_id>/log_to_s3/', methods=['GET'])
 def job_log(job_id=None):
     session = Session()
-    logs = session.query(Log).filter(Log.job_id == job_id).all()
-    r = json_out(logs) if logs else (not_found(), 404)
-    session.close()
-    return r
+    job = session.query(Job).filter(Job.id == job_id).first()
+    if job:
+        job.output_log = True
+        session.close()
+        #add operation to queue
+        data['job_big_operation_controller'].add(job)
+        #doing JSON response to keep my JS simpler
+        return json.dumps({'success': True})
+    else:
+        session.close()
+        return ('', 404)

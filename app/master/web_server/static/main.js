@@ -123,15 +123,9 @@ function view_jobs_ui() {
 }
 
 function view_job_log_ui() {
-  clearPanel();
   job_id = $(this).data("job-id");
-  $("#panel-title").text("Log for Job "+job_id);
-  $.when(get_job_log(job_id)).done(function(log_messages) {
-    $("#panel-body").empty().append(JOB_LOG_UI({job_id: job_id, log_messages: log_messages}));
-  }).fail(function(jqXHR, textStatus, errorThrown) {
-    if(jqXHR.status) {
-      $("#panel-body").empty().append("<p>There are no log messages.</p>");
-    }
+  $.when(get_job_log(job_id)).done(function(data) {
+    alert("The log will be available on S3 soon.");
   });
 }
 
@@ -172,7 +166,7 @@ function create_job_submit() {
 
 /* ---- API Calls ---- */
 function get_job_log(job_id) {
-    return do_get("job/"+job_id+"/log/");
+    return do_get("job/"+job_id+"/log_to_s3/");
 }
 
 

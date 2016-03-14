@@ -15,9 +15,8 @@ class JobBigOperationController(threading.Thread):
         self.async_downloader = async_downloader
 
     def add(self, job):
+        log.info('Queuing Big Job Operation  for %s' % (job))
         self.queue.put(job)
-        print 'here'
-        log.info('Big Job Operation Queued for %s' % (job))
         return True
 
     #NEED TO PAUSE ON JOB CREATION TOO
@@ -27,8 +26,11 @@ class JobBigOperationController(threading.Thread):
             job = self.queue.get()
             log.info('Running Big Operation for %s' % (job))
             session = Session()
+            if hasattr(job, 'output_log') and job.output_log:
+                job.set_session(session)
+                job.output_log_to_s3()
             #Job in created state needs to be submitted
-            if job.status == 'created':
+            elif job.status == 'created':
                 job.set_session(session)
                 job.submit()
                 data_preparer = JobDataPreparer(job)
@@ -44,4 +46,5 @@ class JobBigOperationController(threading.Thread):
             else:
                 #raise some exception
                 log.error('%s shouldn\'t be here' % (job))
+            session.close()
             time.sleep(0.01)

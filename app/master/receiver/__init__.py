@@ -57,7 +57,11 @@ class Receiver(threading.Thread):
 
     def process_task_output(self, msg):
         task = self.session.query(Task).filter(Task.id == msg['data']['id']).first()
-        if task:
+        #is running condition potentially looses data.
+        #should do checks for if task is already completed/failed instead
+        #currently being used to avoid inaccurate db info as a result of out of
+        #order SQS messages
+        if task and task.job.is_running():
             job = task.job
             #need to give the instances the SQLAlchemy Session
             task.set_session(self.session)

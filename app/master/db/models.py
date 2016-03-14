@@ -1,7 +1,9 @@
 import logging
+from master.master_logger import MasterLoggingAdapter
 log = logging.getLogger('root_logger')
+log = MasterLoggingAdapter(log)
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, asc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, PickleType
@@ -73,20 +75,19 @@ class Task(Base, SerializableBase):
         """
         Add task to S3 and SQS and change status to submitted
         """
-        #set task_id in loging handler
-        master_logging_handler.set_task_id(self.task_id)
+        log.set_job_id(self.job_id)
+        log.set_task_id(self.task_id)
         #s3 key is job-id/file
         s3.put(global_conf.CWD+'job-'+self.job_id+'/input/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
         new_tasks_queue.add_message({'id':self.id, 'attributes':self.attributes, 'job_id':self.job_id, 'task_id':self.task_id, 'file_name':self.file_name})
         try:
             self.status = 'submitted'
             self.session.commit()
+            log.info('%s Submitted' % (self))
         except Exception, e:
             log.error('DB Error Submitting Task', exc_info=True)
-        log.info('%s Submitted' % (self))
-        #unset task_id in logging handler
-        master_logging_handler.set_task_id(None)
-
+        log.remove_job_id()
+        log.remove_task_id()
     def __repr__(self):
         return '<Task (id=%s, job=%s, status=%s)>' % (self.id, self.job_id, self.status)
 
@@ -113,13 +114,16 @@ class Job(Base, SerializableBase):
         self.session.add(self)
 
     def submit(self):
-        log.info('Submitting %s' % (self))
+        log.debug('Submitting %s' % (self))
         self.status = 'submitting'
         self.session.commit()
+        log.set_job_id(self.id)
+        log.info('Job %s Submitted' % (self))
 
         log.info('Copying Executable to the S3 Job Folder')
         s3.copy(self.executable_key_path, 'job-'+self.id+'/'+self.id+'.py')
 
+        log.remove_job_id()
         #data is prepared from JobBigOperationController
 
     def all_tasks_completed(self):
@@ -135,17 +139,17 @@ class Job(Base, SerializableBase):
         else:
             self.mark_as_completed()
 
-    def task_only_completion(self):
-        self.mark_as_completed()
-
     def mark_as_completed(self):
+        log.set_job_id(self.id)
         self.status = 'completed'
         self.finished = datetime.utcnow()
         self.session.commit()
         log.info('Job <%s> Completed' % (self.id))
+        log.remove_job_id()
         return True
 
     def mark_as_failed(self):
+        log.set_job_id(self.id)
         self.status = 'failed'
         self.finished = datetime.utcnow()
         self.session.commit()
@@ -163,11 +167,25 @@ class Job(Base, SerializableBase):
             task.status = 'discarded'
         self.session.commit()
         log.info('Job <%s> Failed' % (self.id))
+        log.remove_job_id()
 
     def is_running(self):
         if self.status == 'completed' or self.status == 'failed':
             return False
         return True
+
+    def output_log_to_s3(self):
+        log.info('Pulling all log data from DB for %s' % (self))
+        filename = global_conf.CWD+self.id+'.log'
+        f = open(filename, 'w+')
+        for l in self.session.query(Log).filter(Log.job_id == self.id).order_by(asc(Log.date)).yield_per(1000):
+            f.write(str(l)+'\n')
+        f.close()
+        log.info('Log Generated. Uploading to S3')
+        r = s3.put(filename, key='/job-'+self.id+'/'+self.id+'.log')
+        os.remove(filename)
+        return r
+
 
     def __repr__(self):
         return '<Job (id=%s, status=%s)>' % (self.id, self.status)
@@ -199,7 +217,7 @@ class Log(Base, SerializableBase):
 
     def __repr__(self):
         #gives a representation similar to the usual python logging format
-        msg = '%s - %s - %s - %s' % (self.date, self.level, os.path.relpath(self.pathname), self.instance_id)
+        msg = '%s: %s - %s - %s - %s' % (self.type.upper(), self.instance_id, self.date, self.level, os.path.relpath(self.pathname))
         if self.task_message:
             msg += ' - TASK_FUNCTION_MSG'
         return msg + ' - %s' % (self.msg)

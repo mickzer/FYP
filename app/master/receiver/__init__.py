@@ -36,6 +36,9 @@ class Receiver(threading.Thread):
                     if msg['type'] == 'log':
                         self.add_to_log(msg)
                     elif msg['type'] == 'task':
+                        #commit any buffered logs first
+                        self.session.commit()
+                        self.log_buffer_count = 0
                         self.process_task_output(msg)
                     # self.session.close()
                 time.sleep(0.01)
@@ -54,7 +57,7 @@ class Receiver(threading.Thread):
 
     def process_task_output(self, msg):
         task = self.session.query(Task).filter(Task.id == msg['data']['id']).first()
-        if task and task.job.is_running():
+        if task:
             job = task.job
             #need to give the instances the SQLAlchemy Session
             task.set_session(self.session)
@@ -91,4 +94,4 @@ class Receiver(threading.Thread):
                     #give it to the big op controller
                     self.job_big_operation_controller.add(job)
                 else:
-                    job.task_only_completion()
+                    job.mark_as_completed()

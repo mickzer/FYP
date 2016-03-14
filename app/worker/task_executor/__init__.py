@@ -7,9 +7,10 @@ from aws.sqs import workers_messaging_queue, new_tasks_queue
 from executor import Executor
 
 class TaskExecutor(Executor):
-    def __init__(self, task):
+    def __init__(self, task_msg):
         Executor.__init__(self)
-        self.task = task
+        self.task_msg = task_msg
+        self.task = task_msg.get_data()['data']
         self.job_module = global_conf.CWD+'app/'+self.task['job_id']+'/'
         self.job_dir = global_conf.CWD+'worker_data/job-'+self.task['job_id']+'/'
         self.task_dir = self.job_dir+'task-'+str(self.task['task_id'])+'/'
@@ -26,6 +27,11 @@ class TaskExecutor(Executor):
             #download script and create a module from it called the job_id
             if s3.get('job-'+self.task['job_id']+'/'+self.task['job_id']+'.py', file_path=self.job_module+'__init__.py'):
                 log.info('Exceutable Script Downloaded')
+                #ensure the script is accessible
+                if not os.path.exists(self.job_module+'__init__.py'):
+                    log.error('Executable Script is not incorrect location. \
+                    Check that working directory is correctly configured')
+                    return False
                 return True
             log.error('Failed to Download Executable Script')
             return False
@@ -50,14 +56,23 @@ class TaskExecutor(Executor):
     def execute(self):
         log.info('Executing Task Script')
         input_split = open(self.task_dir+'data', 'r+')
-        #import task script
-        #equivalent to -> from job_id import run as task_script
-        task_script = getattr(__import__(self.task['job_id'], fromlist=['run']), 'run')
         #send the STDOUT to the output file for running the function
         f = open(self.task_dir+'output', 'w+')
+        sys.stdout = f
+        #import task script
+        #equivalent to -> from job_id import run as task_script
+        task_script = None
+        try:
+            task_script = getattr(__import__(self.task['job_id'], fromlist=['run']), 'run')
+        except Exception, e:
+            #claim back the STDOUT
+            sys.stdout = sys.__stdout__
+            log.error('Task Failed on Import of Tasks Script: %s' % (traceback.format_exc()))
+            f.close()
+            return False
+
         #give 3 attempts at running task
         for i in range(0,3):
-            sys.stdout = f
             try:
                 task_script(input_split, self.task['attributes'], log)
                 break
@@ -66,6 +81,7 @@ class TaskExecutor(Executor):
                 sys.stdout = sys.__stdout__
                 log.error('Task Script Failed on Attempt %s:\n%s' % (i+1, traceback.format_exc()))
                 if i == 2:
+                    f.close()
                     return False
         #close the output file
         f.close()
@@ -104,7 +120,7 @@ class TaskExecutor(Executor):
 
     def delete_task(self):
         log.info('Deleting task from new tasks SQS Queue')
-        if new_tasks_queue.delete_current_message():
+        if self.task_msg.delete():
             return True
         log.error('Failed to delete task from new tasks SQS Queue')
         return False

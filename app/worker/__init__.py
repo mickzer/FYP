@@ -30,7 +30,7 @@ class Worker:
             self.worker_handler.set_task_id(task['task_id'])
             log.info('Received Task')
             #create executor
-            executor = TaskExecutor(task)
+            executor = TaskExecutor(task_msg)
             #send task message to record the start time of the task
             task['status'] = 'executing'
             workers_messaging_queue.add_message(task, msg_type='task')

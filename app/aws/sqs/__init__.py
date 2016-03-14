@@ -176,7 +176,7 @@ class Sqs:
         """
         if message_batch:
             try:
-                log.info('Retaining message batch')
+                log.info('Deleting message batch')
                 self._queue.delete_message_batch(message_batch)
                 return True
             except Exception, e:
@@ -222,25 +222,29 @@ class AutoRetainingMessageBatch(threading.Thread):
         self._message_lock = threading.Lock()
         self._message_batch = message_batch
         self._message_batch_data = message_batch_data
+        self._stop = False
     def get_data(self):
         return self._message_batch_data
     def delete(self):
         try:
             self._message_lock.acquire()
             workers_messaging_queue.delete_message_batch(self._message_batch)
+            self._stop = True
             self._message_lock.release()
-            return False
+            return True
         except:
+            self.retain = False
             return False
     def run(self):
         #loop will break when the message been deleted
         while True:
             try:
-                self._message_lock.acquire()
-                if not workers_messaging_queue.retain_message_batch(self._message_batch):
-                    break
-                self._message_lock.release()
                 time.sleep(25)
+                self._message_lock.acquire()
+                if self._stop:
+                    break
+                workers_messaging_queue.retain_message_batch(self._message_batch)
+                self._message_lock.release()
             except:
                 break
 
@@ -257,7 +261,7 @@ class AutoRetainingMessage(threading.Thread):
             self._message_lock.acquire()
             self._message.delete()
             self._message_lock.release()
-            return False
+            return True
         except:
             return False
     def run(self):

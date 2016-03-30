@@ -28,5 +28,5 @@ def internal_error(output=None):
 def conflict(output=None):
 	return json.dumps({'error': 'clienterror', 'output': 'Value for unique entity '+output+' already exists'})
 
-def json_out(data):
-	return json.dumps([elem.to_dict() for elem in data], cls=SQLAlchemyEncoder, indent=2, separators=(',', ': ')) if isinstance(data, list) else data.to_json()
+def json_out(data, exclude=[]):
+	return json.dumps([elem.to_dict(exclude=exclude) for elem in data], cls=SQLAlchemyEncoder, indent=2, separators=(',', ': ')) if isinstance(data, list) else data.to_json(exclude=exclude)

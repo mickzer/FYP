@@ -1,8 +1,6 @@
 import logging, threading, Queue, time, requests
 from datetime import datetime
 
-
-
 class MasterLoggingAdapter(logging.LoggerAdapter):
     def __init__(self, log):
         super(MasterLoggingAdapter, self).__init__(log, {})
@@ -11,13 +9,19 @@ class MasterLoggingAdapter(logging.LoggerAdapter):
         self.extra['job_id'] = job_id
 
     def remove_job_id(self):
-        del self.extra['job_id']
+        try:
+            del self.extra['job_id']
+        except:
+            pass
 
     def set_task_id(self, task_id):
         self.extra['task_id'] = task_id
 
     def remove_task_id(self):
-        del self.extra['task_id']
+        try:
+            del self.extra['task_id']
+        except:
+            pass
 
     def process(self, msg, kwargs):
         kwargs['extra'] = self.extra
@@ -67,7 +71,7 @@ class MasterLoggingHandler(logging.Handler):
         self._async_publisher = AsyncDbPublisher()
         self._async_publisher.setDaemon(True)
         self._async_publisher.start()
-        #get the instance id from ec2 meta-data service
+        #get the instance id from the ec2 meta-data service
         self._instance_id = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
 
     def emit(self, record, **kwargs):

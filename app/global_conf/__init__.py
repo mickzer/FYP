@@ -1,6 +1,7 @@
+import json
+
 #app confs
 CWD = '/home/ec2-user/fyp/'
-SPLIT_SIZE=128000000 #128 Mb
 #Db confs
 DB_CON_STR = 'mysql+pymysql://michaeloneill:testing123@fyp-db.caqels6bmmp3.eu-west-1.rds.amazonaws.com:3306/FYP_DB'
 #aws confs

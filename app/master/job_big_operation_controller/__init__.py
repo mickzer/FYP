@@ -34,7 +34,9 @@ class JobBigOperationController(threading.Thread):
                 job.set_session(session)
                 job.submit()
                 data_preparer = JobDataPreparer(job)
+                self.async_downloader.pause()
                 data_preparer.prepare_data()
+                self.async_downloader.resume()
 
             #Job in tasks completed needs to have it's final script executed
             elif job.status == 'tasks completed':

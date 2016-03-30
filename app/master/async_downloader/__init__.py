@@ -25,14 +25,14 @@ class AsyncDownloader(threading.Thread):
         self.queued_files[job_id].put(task_id)
         log.info('Queued for Async Download: ' + str(task_id))
 
-    def pause(self, job_id):
+    def pause(self, job_id=None):
         self.paused = True
         #acquire the lock which will make the calling thread
         #wait until the current download finishes
         self.pause_cond.acquire()
-        #return the list of downloaded files for this job
+        #return the list of downloaded files for a specified job
         #and delete all records from here
-        if job_id in self.queued_files:
+        if job_id and job_id in self.queued_files:
             del self.queued_files[job_id]
             r = self.downloaded_files[job_id]
             del self.downloaded_files[job_id]

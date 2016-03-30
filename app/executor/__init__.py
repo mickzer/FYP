@@ -6,52 +6,38 @@ class Executor:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def get_script(self):
+    def _before_execute(self):
         pass
 
     @abstractmethod
-    def get_input(self):
-        pass
-
-    def before_execute(self):
-        return self.get_script() and self.get_input()
-
-    @abstractmethod
-    def execute(self):
+    def _execute(self):
         pass
 
     @abstractmethod
-    def upload_output(self):
+    def _after_execute(self):
         pass
 
     @abstractmethod
-    def delete_local_data(self):
+    def _failed_execution(self):
         pass
 
-    def after_execute(self):
-        return self.upload_output() and self.delete_local_data()
-
-    @abstractmethod
-    def failed_execution(self):
-        pass
-
-    def run_stages(self):
+    def _run_stages(self):
         log.info('Starting Before-Execute Stage')
-        if not self.before_execute():
+        if not self._before_execute():
             return False
         log.info('Finished Before-Execute Stage')
         log.info('Starting Execute Stage')
-        if not self.execute():
+        if not self._execute():
             return False
         log.info('Finished Execute Stage')
         log.info('Starting After-Execute Stage')
-        if not self.after_execute():
+        if not self._after_execute():
             return False
         log.info('Finished After-Execute Stage')
         return True
 
     def run_execution(self):
-        if not self.run_stages():
-            self.failed_execution()
+        if not self._run_stages():
+            self._failed_execution()
             return False
         return True

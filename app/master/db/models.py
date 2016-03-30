@@ -25,10 +25,12 @@ Session = scoped_session(session_factory)
 Base = declarative_base()
 #SQLAlchemy Object JSON Serilaizer
 class SerializableBase:
-    def to_dict(self, recurse=True):
+    def to_dict(self, recurse=True, exclude=[]):
         result = {}
         #iterate through col names and relationship names
         for key in self.__mapper__.c.keys() + self.__mapper__.relationships.keys():
+            if key in exclude:
+                continue
             val = getattr(self, key) #get value of current keys
             if isinstance(val, list):
                 if len(val) > 0:
@@ -77,8 +79,10 @@ class Task(Base, SerializableBase):
         """
         log.set_job_id(self.job_id)
         log.set_task_id(self.task_id)
-        #s3 key is job-id/file
-        s3.put(global_conf.CWD+'job-'+self.job_id+'/input/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
+        #upload file if relevant
+        if self.file_name:
+            #s3 key is job-id/file
+            s3.put(global_conf.CWD+'job-'+self.job_id+'/split/'+self.file_name, key='job-'+self.job_id+'/split_input/'+self.file_name)
         new_tasks_queue.add_message({'id':self.id, 'attributes':self.attributes, 'job_id':self.job_id, 'task_id':self.task_id, 'file_name':self.file_name})
         try:
             self.status = 'submitted'
@@ -97,14 +101,16 @@ class Job(Base, SerializableBase):
     id = Column(String(36), primary_key=True, default=str(uuid.uuid4()), nullable=False)
     name = Column(String(256), nullable=False)
     executable_key_path = Column(String(256), nullable=False)
-    input_key_path = Column(String(256), nullable=False)
+    input_key_path = Column(String(256))
     data_prep_script = Column(String(256))
     final_script = Column(String(256))
+    task_completion_script = Column(String(256))
     created = Column(DateTime, default=datetime.utcnow(), nullable=False)
     finished = Column(DateTime)
     status = Column(String(50), nullable=False, default='created')
     failed_tasks_threshold = Column(Integer, default=0)
     task_split_size = Column(Integer, default=134217728)
+    task_completion_context = Column(PickleType, default={})
     tasks = relationship('Task', backref=backref('job'), cascade='delete')
     #will be set on call of submit
     input_dir = None
@@ -128,7 +134,11 @@ class Job(Base, SerializableBase):
 
     def all_tasks_completed(self):
         #check if all tasks are finished
-        return self.session.query(Task).filter(and_(Task.job_id == self.id, Task.status != 'completed')).count()  == 0
+        uncompleted_tasks = self.session.query(Task).filter(and_(Task.job_id == self.id, Task.status != 'completed')).count()
+        if uncompleted_tasks > 0:
+            failed_tasks = self.session.query(Task).filter(and_(Task.job_id == self.id, Task.status == 'failed')).count()
+            return uncompleted_tasks-failed_tasks == 0
+        return uncompleted_tasks == 0
 
     def execute_final_script(self):
         self.status = 'executing final script'
@@ -147,6 +157,11 @@ class Job(Base, SerializableBase):
         log.info('Job <%s> Completed' % (self.id))
         log.remove_job_id()
         return True
+
+    def mark_as_tasks_executing(self):
+        log.set_job_id(self.id)
+        self.status = 'executing tasks'
+        self.session.commit()
 
     def mark_as_failed(self):
         log.set_job_id(self.id)
@@ -186,6 +201,10 @@ class Job(Base, SerializableBase):
         os.remove(filename)
         return r
 
+    def update_task_completion_context(self, context):
+        self.task_completion_context = context
+        self.session.add(self)
+        self.session.commit()
 
     def __repr__(self):
         return '<Job (id=%s, status=%s)>' % (self.id, self.status)
@@ -209,6 +228,8 @@ class Log(Base, SerializableBase):
         #check if msg is a dict, if json it
         if isinstance(kwargs['msg'], dict):
             kwargs['msg'] = json.dumps(kwargs['msg'])
+        elif not kwargs['msg']:
+            kwargs['msg'] = 'NULL'
         for key in kwargs:
             try:
                 setattr(self, key, kwargs[key])

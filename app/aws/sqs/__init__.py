@@ -64,7 +64,7 @@ class Sqs:
               dict -- Message
               False -- No Message/Failure
         """
-        log.info('Getting Message from SQS (%s)' % (self._queue_name))
+        log.debug('Getting Message from SQS (%s)' % (self._queue_name))
         try:
             msg = self._queue.get_messages(num_messages=1)
             if msg:
@@ -90,7 +90,7 @@ class Sqs:
               list -- Messages
               False -- No Message/Failure
         """
-        log.info('Getting Message Batch from SQS (%s)' % (self._queue_name))
+        log.debug('Getting Message Batch from SQS (%s)' % (self._queue_name))
         try:
             msg_batch = self._queue.get_messages(num_messages=10)
             if msg_batch:
@@ -124,50 +124,6 @@ class Sqs:
                 return True
             except Exception, e:
                 log.error('Failed to retain message batch', exc_info=True)
-                return False
-        return False
-    def retain_current_message(self):
-        """This function keeps the current_message hidden for 30 more seconds
-
-        Returns:
-           bool.  The return code::
-
-              True -- Success
-              False -- Failure
-        """
-        if self.current_message:
-            try:
-                log.info('Retaining current message')
-                self._con.change_message_visibility(self._queue, self.current_message.receipt_handle, 30)
-                return True
-            except Exception, e:
-                log.error('Failed to retain message', exc_info=True)
-                return False
-        return False
-    def delete_current_message(self, message=None):
-        """This function deletes a message from the queue
-
-        Returns:
-           bool.  The return code::
-
-              True -- Success
-              False -- Failure or message has been deleted
-        """
-        if message:
-            try:
-                log.info('Deleting current message')
-                self._queue.delete_message(message)
-                return True
-            except Exception, e:
-                log.error('Failed to delete message', exc_info=True)
-                return False
-        elif self.current_message:
-            try:
-                self._queue.delete_message(self.current_message)
-                self.current_message = None
-                return True
-            except Exception, e:
-                log.error('Failed to delete message', exc_info=True)
                 return False
         return False
     def delete_message_batch(self, message_batch):

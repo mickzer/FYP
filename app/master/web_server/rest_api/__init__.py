@@ -17,7 +17,7 @@ def job(job_id=None):
             return r
         else:
             jobs = session.query(Job).all()
-            r = json_out(jobs) if jobs else (not_found(), 404)
+            r = json_out(jobs, exclude=['tasks']) if jobs else (not_found(), 404)
             session.close()
             return r
     elif request.method == 'POST':

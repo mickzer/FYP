@@ -1,4 +1,3 @@
-import logging
 from master.master_logger import create_master_logger
 log = create_master_logger('root_logger')
 
@@ -9,6 +8,7 @@ from master.job_big_operation_controller import JobBigOperationController
 
 class Master:
     def __init__(self):
+        log.info('Starting Master Agent')
         self.async_downloader = AsyncDownloader()
         self.async_downloader.setDaemon(True)
 

@@ -1,5 +1,7 @@
 import logging
+from worker.worker_logger import WorkerLoggingAdapter
 log = logging.getLogger('root_logger')
+log = WorkerLoggingAdapter(log)
 
 import subprocess, os, shutil, sys, traceback, global_conf
 from aws.s3 import s3
@@ -14,8 +16,14 @@ class TaskExecutor(Executor):
         self.job_module = global_conf.CWD+'app/'+self.task['job_id']+'/'
         self.job_dir = global_conf.CWD+'worker_data/job-'+self.task['job_id']+'/'
         self.task_dir = self.job_dir+'task-'+str(self.task['task_id'])+'/'
+        #put job and task in log
+        log.set_job_id(self.task['job_id'])
+        log.set_task_id(self.task['task_id'])
 
-    def get_script(self):
+    def _before_execute(self):
+        return self._get_script() and self._get_input()
+
+    def _get_script(self):
         log.info('Getting Exceutable Script')
         if os.path.exists(self.job_module+'__init__.py'):
             log.info('Exceutable Script was Cached')
@@ -36,7 +44,7 @@ class TaskExecutor(Executor):
             log.error('Failed to Download Executable Script')
             return False
 
-    def get_input(self):
+    def _get_input(self):
         log.info('Creating Local Directory Structure')
         #create the directory structure
         #ensure/create worker_data
@@ -45,6 +53,10 @@ class TaskExecutor(Executor):
         #ensure/create task dir
         if not os.path.isdir(self.task_dir):
             os.makedirs(self.task_dir)
+        #now check if we need to get any input
+        if not self.task['file_name']:
+            log.info('No data specified for this task')
+            return True
         #download input split from S3
         log.info('Downloading Input Split')
         if s3.get('job-'+self.task['job_id']+'/split_input/'+self.task['file_name'], self.task_dir+'data'):
@@ -53,16 +65,19 @@ class TaskExecutor(Executor):
         log.error('Failed to get input split from S3')
         return False
 
-    def execute(self):
+    def _execute(self):
         log.info('Executing Task Script')
-        input_split = open(self.task_dir+'data', 'r+')
+        if self.task['file_name']:
+            input_split = open(self.task_dir+'data', 'r+')
+        else:
+            input_split = None
         #send the STDOUT to the output file for running the function
         f = open(self.task_dir+'output', 'w+')
         sys.stdout = f
         #import task script
-        #equivalent to -> from job_id import run as task_script
         task_script = None
         try:
+            #equivalent to -> from job_id import run as task_script
             task_script = getattr(__import__(self.task['job_id'], fromlist=['run']), 'run')
         except Exception, e:
             #claim back the STDOUT
@@ -83,14 +98,20 @@ class TaskExecutor(Executor):
                 if i == 2:
                     f.close()
                     return False
-        #close the output file
+        #close the output files
         f.close()
+        if input_split:
+            input_split.close()
         #claim back the STDOUT
         sys.stdout = sys.__stdout__
         log.info('Script Execution Completed')
         return True
 
-    def upload_output(self):
+    def _after_execute(self):
+        r = self._upload_output() and self._delete_local_data()
+        return r and self._message_completion() and self._delete_task()
+
+    def _upload_output(self):
         if os.stat(self.task_dir+'output').st_size > 0:
             log.info('Uploading Task Output to S3')
             key = '/job-'+self.task['job_id']+'/task_output/'+str(self.task['task_id'])
@@ -101,7 +122,7 @@ class TaskExecutor(Executor):
         log.info('No Task Output Exists')
         return True
 
-    def delete_local_data(self):
+    def _delete_local_data(self):
         log.info('Deleting local task data')
         try:
             shutil.rmtree(self.job_dir)
@@ -110,7 +131,7 @@ class TaskExecutor(Executor):
              log.error('Error Deleting Local Task Data', exc_info=True)
              return False
 
-    def message_completion(self):
+    def _message_completion(self):
         log.info('Adding task completion to SQS Queue')
         self.task['status'] = 'completed'
         if workers_messaging_queue.add_message(self.task, msg_type='task'):
@@ -118,22 +139,17 @@ class TaskExecutor(Executor):
         log.error('Failed to add task completion to SQS Queue')
         return False
 
-    def delete_task(self):
+    def _delete_task(self):
         log.info('Deleting task from new tasks SQS Queue')
         if self.task_msg.delete():
             return True
         log.error('Failed to delete task from new tasks SQS Queue')
         return False
 
-    #redefine after_execute to add new functions
-    def after_execute(self):
-        r = super(TaskExecutor, self).after_execute()
-        return r and self.message_completion() and self.delete_task()
-
-    def failed_execution(self):
+    def _failed_execution(self):
         #add failed task message
         log.info('Adding task failure to SQS Queue')
         self.task['status'] = 'failed'
         workers_messaging_queue.add_message(self.task, msg_type='task')
-        self.delete_task()
-        self.delete_local_data()
+        self._delete_task()
+        self._delete_local_data()

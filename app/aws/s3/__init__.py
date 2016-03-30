@@ -115,6 +115,20 @@ class S3:
 			log.error('Failed to download key (%s) from S3 (%s)' % (key, self.bucket_name), exc_info=True)
 			return False
 
+	def delete(self, key):
+		try:
+			log.info('Deleting File (%s) from S3 (%s)' % (key, self.bucket_name))
+			key = self.bucket.get_key(key)
+			if key:
+				key.delete()
+				log.info('Deleted File (%s) from S3 (%s)' % (key, self.bucket_name))
+				return True
+			else:
+				log.error('Failed to Delete File (%s) from S3 (%s) - Does Not Exist' % (key, self.bucket_name))
+		except Exception, e:
+			log.error('Failed to Delete File (%s) from S3 (%s)' % (key, self.bucket_name), exc_info=True)
+			return False
+
 	def get_directory(self, directory_key, file_path=None):
 		"""This function downloads all the files in a directory from S3.
 
@@ -181,19 +195,5 @@ class S3:
 			return False
 		log.info('Deleted directory (%s) from S3 (%s)' % (directory_key, self.bucket_name))
 		return True
-
-	def delete(self, key):
-		try:
-			log.info('Deleting File (%s) from S3 (%s)' % (key, self.bucket_name))
-			key = self.bucket.get_key(key)
-			if key:
-				key.delete()
-				log.info('Deleted File (%s) from S3 (%s)' % (key, self.bucket_name))
-				return True
-			else:
-				log.error('Failed to Delete File (%s) from S3 (%s) - Does Not Exist' % (key, self.bucket_name))
-		except Exception, e:
-			log.error('Failed to Delete File (%s) from S3 (%s)' % (key, self.bucket_name), exc_info=True)
-			return False
 
 s3=S3()

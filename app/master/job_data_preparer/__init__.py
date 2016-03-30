@@ -6,12 +6,73 @@ log = MasterLoggingAdapter(log)
 import subprocess, os, shutil, sys
 from aws.s3 import s3
 from master.db.models import Task
+from filechunkio import FileChunkIO
+import math
+
+from executor import Executor
+
+class DataPreparationScriptExecutor(Executor):
+    def __init__(self, job):
+        Executor.__init__(self)
+        self.job = job
+        self.module_name = 'job-'+job.id+'-dps'
+        self.module_path = global_conf.CWD+'app/'+self.module_name
+        self.input_dir = global_conf.CWD+'job-'+job.id+'/input/'
+        #add job_id to log messages
+        log.set_job_id(job.id)
+
+    def _before_execute(self):
+        return self._get_script()
+
+    def _get_script(self):
+        #create job module folder
+        if not os.path.isdir(self.module_path):
+            os.makedirs(self.module_path)
+        log.info('Downloading Data Prep Script from S3')
+        #download script and create a module from it called the job_id
+        if s3.get(self.job.data_prep_script, file_path=self.module_name+'/__init__.py'):
+            log.info('Data Prep Script Downloaded')
+            return True
+        return False
+
+    def _execute(self):
+        if self.job.input_key_path:
+            #get a r/w pointer to all the job input files
+            input_files = [open(self.input_dir+f, 'r+') for f in os.listdir(self.input_dir)]
+        else:
+            input_files = None
+        #import data prep script
+        #equivalent to -> from job_id import prepare as custom_prepare
+        custom_prepare = getattr(__import__(self.module_name, fromlist=['prepare']), 'prepare')
+        try:
+            custom_prepare(input_files, self.job.id, log)
+        except Exception, e:
+            log.error('Custom Data Preperation Script Failed:', exc_info=True)
+            return False
+        return True
+
+    def _after_execute(self):
+        return self._delete_local_data()
+
+    def _delete_local_data(self):
+        try:
+            shutil.rmtree(self.module_path)
+        except:
+            pass
+        return True
+
+    def _failed_execution(self):
+        log.info('Data Preparation Script failed for %s' % (self.job))
+        self.job.mark_as_failed()
 
 class JobDataPreparer:
     def __init__(self, job):
         self.job = job
         self.input_dir = global_conf.CWD+'job-'+job.id+'/input/'
-        #ad job_id to log
+        self.split_dir = global_conf.CWD+'job-'+job.id+'/split/'
+        if not os.path.isdir(self.split_dir):
+            os.makedirs(self.split_dir)
+        #add job_id to log messages
         log.set_job_id(job.id)
 
     def prepare_data(self):
@@ -19,55 +80,84 @@ class JobDataPreparer:
         try:
             self._get_job_data()
             if self.job.data_prep_script:
-                self._custom_data_prepare()
+                self._custom_prepare()
             else:
                 self._default_prepare()
             self._delete_local_data()
-            self._job_executing()
+            self.job.mark_as_tasks_executing()
         except Exception, e:
-            log.error('Job Failed..... Need to actually implement this', exc_info=True)
+            log.error('Job Failed.', exc_info=True)
+            self._failed_preparation()
         log.info('Finished Preparing Data')
 
+    def _failed_preparation(self):
+        log.info('Job Data Preparation failed for %s' % (self.job))
+        self.job.mark_as_failed()
+
     def _get_job_data(self):
-        log.info('Downloading Input Data')
-        #download input directory from s3 into a folder input
-        r=s3.get_directory(self.job.input_key_path, self.input_dir)
-        log.info('Input files downloaded from S3')
+        if self.job.input_key_path:
+            log.info('Downloading Input Data')
+            #download input directory from s3 into a folder input
+            r=s3.get_directory(self.job.input_key_path, self.input_dir)
+            log.info('Input files downloaded from S3')
+        else:
+            log.info('No Input Data was supplied with this job')
+            if not self.job.data_prep_script:
+                msg = 'No Input Data & No Data Preparation Script was supplied'
+                log.info(msg)
+                raise Exception(msg)
 
     def _default_prepare(self):
-        def split_file(file_path):
-            """Does a bash command to split a file_path
-            using the bash split command as it's probably more efficient
-            than anything python can do!
-            Only problem is that it makes windows a no go
-            """
-            log.info('Splitting file %s' % (file_path))
-            try:
-                #rename file to put _ at the end
-                #turns /input/asd.txt -> /input/asd_.txt
-                file_name = os.path.splitext(os.path.basename(file_path))
-                new_file_path = file_path[:file_path.rfind('/')+1]+file_name[0]+'_'+file_name[1]
-                os.rename(file_path, new_file_path)
-                #split file with block size using numerical indexes with the file prefix as split prefixes ie. file_name.txt -> file_name0, file_name1...
-                cmd = "split %s -b %s -d %s" % (os.path.basename(new_file_path), self.job.task_split_size, os.path.splitext(os.path.basename(new_file_path))[0])
-                process = subprocess.Popen(cmd.split(), cwd=self.input_dir, stdout=subprocess.PIPE)
-                #wait until the split finishes
-                process.wait()
-                #delete the original file afterwards
-                os.remove(new_file_path)
-            except Exception, e:
-                log.error('Error Splitting Input:', exc_info=True)
+        # def split_file(file_path):
+        #     """Does a bash command to split a file_path
+        #     using the bash split command as it's probably more efficient
+        #     than anything python can do!
+        #     Only problem is that it makes windows a no go
+        #     """
+        #     log.info('Splitting file %s' % (file_path))
+        #     try:
+        #         #rename file to put _ at the end
+        #         #turns /input/asd.txt -> /input/asd_.txt
+        #         file_name = os.path.splitext(os.path.basename(file_path))
+        #         new_file_path = file_path[:file_path.rfind('/')+1]+file_name[0]+'_'+file_name[1]
+        #         os.rename(file_path, new_file_path)
+        #         #split file with block size using numerical indexes with the file prefix as split prefixes ie. file_name.txt -> file_name0, file_name1...
+        #         cmd = "split %s -b %s -d %s" % (os.path.basename(new_file_path), self.job.task_split_size, os.path.splitext(os.path.basename(new_file_path))[0])
+        #         process = subprocess.Popen(cmd.split(), cwd=self.input_dir, stdout=subprocess.PIPE)
+        #         #wait until the split finishes
+        #         process.wait()
+        #         #delete the original file afterwards
+        #         os.remove(new_file_path)
+        #     except Exception, e:
+        #         log.error('Error Splitting Input:', exc_info=True)
+        def split_file(file_path, chunk_size, task_id):
+            file_size = os.stat(file_path).st_size
+            chunk_count = int(math.ceil(file_size / float(chunk_size)))
+            #Send the file parts, using FileChunkIO to create a file-like object
+            # that points to a certain byte range within the original file. We
+            # set bytes to never exceed the original file size.
+            for i in range(chunk_count):
+                offset = chunk_size * i
+                bytes = min(chunk_size, file_size - offset)
+                with FileChunkIO(file_path, 'r', offset=offset, bytes=bytes) as fp:
+                    f = open(self.split_dir+str(task_id), 'w')
+                    f.write(fp.readall())
+                    f.close()
+                    task_id += 1
+            return task_id
         #-------
         log.info('Performing Default Data Preparation')
         #go through each downloaded file in the directory & split it
+        task_id = 1
         for f in os.listdir(self.input_dir):
-            split_file(self.input_dir+f)
+            log.info('Splitting File %s' % (f))
+            task_id = split_file(self.input_dir+f, self.job.task_split_size, task_id)
 
         #create a task for each split
         tasks = []
         try:
-            for f in os.listdir(self.input_dir):
-                t=Task(job_id=self.job.id, file_name=f, task_id=f[f.rfind('_')+1:])
+            for f in os.listdir(self.split_dir):
+                t=Task(job_id=self.job.id, file_name=f, task_id=f)
                 #-1 means the last element
                 self.job.session.add(t)
                 self.job.session.commit()
@@ -84,39 +174,14 @@ class JobDataPreparer:
         except Exception, e:
             log.error('Error Creating Task', exc_info=True)
 
-    def _custom_data_prepare(self):
-        self._get_prep_script()
-        #get a r/w pointer to all the job input files
-        input_files = [open(self.input_dir+f, 'r+') for f in os.listdir(self.input_dir)]
-        #import data prep script
-        #equivalent to -> from job_id import prepare as custom_prepare
-        custom_prepare = getattr(__import__(self.job.id, fromlist=['prepare']), 'prepare')
-        log.info('Running Custom Data Preparation Script')
-        try:
-            custom_prepare(input_files, self.job.id, log)
-        except Exception, e:
-            log.error('Custom Data Preperation Script Failed:', exc_info=True)
-        log.info('Custom Data Preparation Script Completed')
-
-    def _get_prep_script(self):
-        #create job module folder
-        job_module = global_conf.CWD+'app/'+self.job.id+'/'
-        if not os.path.isdir(job_module):
-            os.makedirs(job_module)
-        log.info('Downloading Data Prep Script from S3')
-        #download script and create a module from it called the job_id
-        s3.get(self.job.data_prep_script, file_path=job_module+'__init__.py')
-        log.info('Data Prep Script Downloaded')
-        #need to add exception stuff later
-
-    def _job_executing(self):
-        #job is submitted so mark as executing
-        self.job.status = 'executing tasks'
-        self.job.session.commit()
+    def _custom_prepare(self):
+        exc = DataPreparationScriptExecutor(self.job)
+        exc.run_execution()
 
     def _delete_local_data(self):
-        #delete input folder after tasks have been created and
-        #splits saved to S3
-        shutil.rmtree(global_conf.CWD+'job-'+self.job.id)
-        #delete the job module for any custom scripts that may have been
-        shutil.rmtree(global_conf.CWD+'app/'+self.job.id)
+        try:
+            #delete input folder after tasks have been created and
+            #splits saved to S3
+            shutil.rmtree(global_conf.CWD+'job-'+self.job.id)
+        except:
+            pass #deleteion failures are not important

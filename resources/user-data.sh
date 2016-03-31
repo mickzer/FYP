@@ -1,10 +1,10 @@
 #!/bin/bash
 cd /home/ec2-user
-aws s3 cp s3://michaeloneillfyp/fyp_scripts/fyp fyp_compressed
-tar -zxvf fyp_compressed
-cd fyp
-pip install -r requirements.txt
-yum install -y git
-pip install git+git://github.com/mickzer/swalign
-cd app
-python __init__.py assume_worker
+yum -y install git
+#UPDATE THIS LINE WITH YOUR GITHUB USERNAME
+git clone https://github.com/YOUR_GITHUB_USERNAME/FYP fyp
+pip install -r fyp/resources/requirements.txt
+cp fyp/resources/worker /etc/init.d/fyp
+chmod u+x /etc/init.d/fyp
+mkdir /var/log/fyp
+/etc/init.d/fyp start

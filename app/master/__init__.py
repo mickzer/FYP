@@ -7,6 +7,9 @@ from master.receiver import Receiver
 from master.job_big_operation_controller import JobBigOperationController
 
 class Master:
+    """
+    Starts all of the components that make the master agent
+    """
     def __init__(self):
         log.info('Starting Master Agent')
         self.async_downloader = AsyncDownloader()

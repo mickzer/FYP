@@ -9,7 +9,9 @@ from executor import Executor
 from sqlalchemy import and_, not_
 
 class JobFinalScriptExecutor(Executor):
-
+    """
+    Executes a user's final exeuction script for a job.
+    """
     def __init__(self, job):
         Executor.__init__(self)
         self.job = job

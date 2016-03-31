@@ -10,6 +10,13 @@ from aws.s3 import s3
 import time, os
 
 class Worker:
+    """
+    This class polls the new tasks queue for new tasks. Every time a task
+    is received, the existence of the job's task execution script is verified.
+    If it does not exist, the task is discarded. If it does exist, it will be
+    retrieved and the task will be executed and subsequently marked as completed
+    or failed.
+    """
     def __init__(self):
         log.info('Starting Worker Agent')
     def run(self):

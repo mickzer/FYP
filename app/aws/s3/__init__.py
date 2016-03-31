@@ -116,6 +116,16 @@ class S3:
 			return False
 
 	def delete(self, key):
+        """This function deletes an object from S3.
+
+	    Args:
+	       key(str):  The key of the file to delete
+
+	    Returns:
+	       bool or Key.  The return code::
+	          True -- Success
+	          False -- Failure
+	    """
 		try:
 			log.info('Deleting File (%s) from S3 (%s)' % (key, self.bucket_name))
 			key = self.bucket.get_key(key)
@@ -180,6 +190,16 @@ class S3:
 			return False
 
 	def delete_directory(self, directory_key):
+        """This function deletes a directory of objects from S3.
+
+	    Args:
+	       key(str):  The key of the directory to delete
+
+	    Returns:
+	       bool or Key.  The return code::
+	          True -- Success
+	          False -- Failure
+	    """
 		try:
 			#ensure dir key is of the format /key/
 			if directory_key[0] == '/':

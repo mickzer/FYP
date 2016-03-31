@@ -9,6 +9,9 @@ from executor import Executor
 from master.db.models import Session, Job
 
 class TaskCompletionScriptExecutor(Executor):
+    """
+    This class executes a user's supplied task execution scirpt.
+    """
     def __init__(self, task, job):
         self._task = task
         self.script_module = 'job-'+self._task.job_id+'-tcs'

@@ -9,6 +9,9 @@ from aws.sqs import workers_messaging_queue, new_tasks_queue
 from executor import Executor
 
 class TaskExecutor(Executor):
+    """
+    This class executes a user's task execution script.
+    """
     def __init__(self, task_msg):
         Executor.__init__(self)
         self.task_msg = task_msg

@@ -2,6 +2,9 @@ import logging, threading, Queue, time, requests
 from datetime import datetime
 
 class MasterLoggingAdapter(logging.LoggerAdapter):
+    """
+    Provides an interface to attach job ids and task ids to log messages.
+    """
     def __init__(self, log):
         super(MasterLoggingAdapter, self).__init__(log, {})
 
@@ -36,8 +39,8 @@ class MasterLoggingAdapter(logging.LoggerAdapter):
 from master.db.models import Session, Log
 
 class AsyncDbPublisher(threading.Thread):
-    """Container for threading handlers to make it run
-       Asychronously
+    """
+    Publishes log messages to the DB asynchronously in batches of 10.
     """
     def __init__(self):
          threading.Thread.__init__(self)
@@ -63,7 +66,7 @@ class AsyncDbPublisher(threading.Thread):
 
 class MasterLoggingHandler(logging.Handler):
     """ A python logging handler which sends all logging
-        messages to RDS
+        messages to  the database
     """
     def __init__(self):
         logging.Handler.__init__(self)

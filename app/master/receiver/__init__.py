@@ -8,6 +8,12 @@ from datetime import datetime
 from master.task_completion_script_executor import TaskCompletionScriptExecutor
 
 class Receiver(threading.Thread):
+    """
+    Consumes the worker's messaging queue and performs the relevant operation
+    depending on the operation received. This can include writing a log message
+    to the database, executing a task completion script, marking a job as failed,
+    queing a final script execution and marking a job as completed.
+    """
     def __init__(self, job_big_operation_controller, async_downloader):
         threading.Thread.__init__(self)
         #should prob throw exception is these are null
@@ -19,9 +25,9 @@ class Receiver(threading.Thread):
         self.session = Session()
         log.info('Polling workers messaging queue')
         while True:
-            # if self.log_buffer_count == 10:
-            #     self.session.commit()
-            #     self.log_buffer_count = 0
+            if self.log_buffer_count == 10:
+                self.session.commit()
+                self.log_buffer_count = 0
             #poll queue
             msg_batch = workers_messaging_queue.poll_batch()
             msg_batch_data = msg_batch.get_data()
@@ -52,7 +58,7 @@ class Receiver(threading.Thread):
         except:
             l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S')
         self.session.add(l)
-        self.session.commit()
+        # self.session.commit()
         self.log_buffer_count += 1
 
     def _process_task_message(self, msg):

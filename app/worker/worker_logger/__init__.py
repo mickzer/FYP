@@ -2,6 +2,9 @@ import logging, logging.handlers, requests, re, os
 from aws.sqs import workers_messaging_queue
 
 class WorkerLoggingAdapter(logging.LoggerAdapter):
+    """
+    An class to add task ids and job ids to log messages
+    """
     def __init__(self, log):
         super(WorkerLoggingAdapter, self).__init__(log, {})
 

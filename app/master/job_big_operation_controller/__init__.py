@@ -7,19 +7,19 @@ from master.db.models import Session
 from master.job_data_preparer import JobDataPreparer
 
 class JobBigOperationController(threading.Thread):
+    """
+    Only allows the operation of a single 'big operation' at any one time.
+    """
     def __init__(self, async_downloader):
         threading.Thread.__init__(self)
+        #queue of jobs to perform operations on
         self.queue = Queue()
-        #should prob throw exception is this is null
-        #or not running
         self.async_downloader = async_downloader
 
     def add(self, job):
         log.info('Queuing Big Job Operation  for %s' % (job))
         self.queue.put(job)
         return True
-
-    #NEED TO PAUSE ON JOB CREATION TOO
     def run(self):
         log.info('JobBigOperationController Started')
         while True:

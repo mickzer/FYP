@@ -166,6 +166,9 @@ class Sqs:
                 return rs
             time.sleep(5)
     def delete_all_messages(self):
+        """
+        Purges a queue
+        """
         while True:
             m = self.get_message()
             if not m:
@@ -173,6 +176,11 @@ class Sqs:
             self.delete_message()
 
 class AutoRetainingMessageBatch(threading.Thread):
+    """
+    This class keeps an SQS message batch hidden from the queue by issuing an api
+    call to SQS every 30 seconds. It stops retaining when the message batch
+    is deleted
+    """
     def __init__(self, message_batch, message_batch_data):
         threading.Thread.__init__(self)
         self._message_lock = threading.Lock()
@@ -205,6 +213,11 @@ class AutoRetainingMessageBatch(threading.Thread):
                 break
 
 class AutoRetainingMessage(threading.Thread):
+    """
+    This class keeps an SQS message hidden from the queue by issuing an api
+    call to SQS every 30 seconds. It stops retaining when the message
+    is deleted
+    """
     def __init__(self, message, message_data):
         threading.Thread.__init__(self)
         self._message_lock = threading.Lock()

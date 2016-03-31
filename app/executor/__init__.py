@@ -3,6 +3,9 @@ log = logging.getLogger('root_logger')
 from abc import ABCMeta, abstractmethod
 
 class Executor:
+    """
+    An abstract base class to manage the operation of all 'Executors'.
+    """
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -22,6 +25,9 @@ class Executor:
         pass
 
     def _run_stages(self):
+        """
+        Executes the stages of execution in order.
+        """
         log.info('Starting Before-Execute Stage')
         if not self._before_execute():
             return False
@@ -37,6 +43,9 @@ class Executor:
         return True
 
     def run_execution(self):
+        """
+        Runs an execution and runs the failure routine if it didn't work.
+        """
         if not self._run_stages():
             self._failed_execution()
             return False

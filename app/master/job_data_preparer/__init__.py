@@ -12,6 +12,9 @@ import math
 from executor import Executor
 
 class DataPreparationScriptExecutor(Executor):
+    """
+    Executes a user's supplied data exeuction script.
+    """
     def __init__(self, job):
         Executor.__init__(self)
         self.job = job
@@ -66,6 +69,9 @@ class DataPreparationScriptExecutor(Executor):
         self.job.mark_as_failed()
 
 class JobDataPreparer:
+    """
+    Handles the data preparation stage of a job
+    """
     def __init__(self, job):
         self.job = job
         self.input_dir = global_conf.CWD+'job-'+job.id+'/input/'
@@ -108,28 +114,10 @@ class JobDataPreparer:
                 raise Exception(msg)
 
     def _default_prepare(self):
-        # def split_file(file_path):
-        #     """Does a bash command to split a file_path
-        #     using the bash split command as it's probably more efficient
-        #     than anything python can do!
-        #     Only problem is that it makes windows a no go
-        #     """
-        #     log.info('Splitting file %s' % (file_path))
-        #     try:
-        #         #rename file to put _ at the end
-        #         #turns /input/asd.txt -> /input/asd_.txt
-        #         file_name = os.path.splitext(os.path.basename(file_path))
-        #         new_file_path = file_path[:file_path.rfind('/')+1]+file_name[0]+'_'+file_name[1]
-        #         os.rename(file_path, new_file_path)
-        #         #split file with block size using numerical indexes with the file prefix as split prefixes ie. file_name.txt -> file_name0, file_name1...
-        #         cmd = "split %s -b %s -d %s" % (os.path.basename(new_file_path), self.job.task_split_size, os.path.splitext(os.path.basename(new_file_path))[0])
-        #         process = subprocess.Popen(cmd.split(), cwd=self.input_dir, stdout=subprocess.PIPE)
-        #         #wait until the split finishes
-        #         process.wait()
-        #         #delete the original file afterwards
-        #         os.remove(new_file_path)
-        #     except Exception, e:
-        #         log.error('Error Splitting Input:', exc_info=True)
+        """
+        Splits the input file into chunks of the job's task split size and
+        creates and submits a task for each of them.
+        """
         def split_file(file_path, chunk_size, task_id):
             file_size = os.stat(file_path).st_size
             chunk_count = int(math.ceil(file_size / float(chunk_size)))

@@ -4,12 +4,15 @@ import threading, time, random, global_conf
 from Queue import Queue
 from aws.s3 import s3
 
-#NOTE: TAKE ANOTHER LOOK AT RUN - Are the QUEUEs being delete when they shouldnt?
 
 class AsyncDownloader(threading.Thread):
-
+    """
+    Asynchronously downloads files added to it's queue
+    """
     def __init__(self):
         threading.Thread.__init__(self)
+        #map of queues where the key is the job id. allows the queueing
+        #of files for multiple jobs
         self.queued_files = {}
         self.downloaded_files = {}
         #paused flag
@@ -26,6 +29,10 @@ class AsyncDownloader(threading.Thread):
         log.info('Queued for Async Download: ' + str(task_id))
 
     def pause(self, job_id=None):
+        """
+        Pauses the downloaded but makes the calling thread wait if
+        the download is in the middle of a download.
+        """
         self.paused = True
         #acquire the lock which will make the calling thread
         #wait until the current download finishes

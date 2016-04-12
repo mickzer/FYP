@@ -56,7 +56,7 @@ class AsyncDbPublisher(threading.Thread):
             self.buffer.append(l)
             count += 1
             #buffer 10 insertions before committing
-            if(count == 10):
+            if(count == 1):
                 for msg in self.buffer:
                     self.session.add(msg)
                 self.session.commit()

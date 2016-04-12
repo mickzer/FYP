@@ -46,7 +46,8 @@ class JobFinalScriptExecutor(Executor):
         for task in tasks:
             path = 'job-'+self.job.id+'/task_output/' + str(task.task_id)
             #download file
-            s3.get(path, file_path=global_conf.CWD+path)
+            if not s3.get(path, file_path=global_conf.CWD+path):
+                return False
         return True
 
     def _execute(self):
@@ -94,12 +95,12 @@ class JobFinalScriptExecutor(Executor):
 
     def _delete_local_data(self):
         log.info('Deleting Task & Final Script Output Data')
-        # try:
-        #     shutil.rmtree(self.job_dir)
-        #     shutil.rmtree(self.job_module)
-        #     log.info('Deleted Final Script Module')
-        # except Exception, e:
-        #      log.error('Error Deleting Local Data', exc_info=True)
+        try:
+            shutil.rmtree(self.job_dir)
+            shutil.rmtree(self.job_module)
+            log.info('Deleted Final Script Module')
+        except Exception, e:
+             log.error('Error Deleting Local Data', exc_info=True)
         return True
 
     #this function deletes the task input splits and task outputs from S3
@@ -115,5 +116,5 @@ class JobFinalScriptExecutor(Executor):
 
     def _failed_execution(self):
         log.info('Final Script Execution failed for %s' % (self.job))
-        # self._delete_local_data()
-        # self.job.mark_as_failed()
+        self._delete_local_data()
+        self.job.mark_as_failed()

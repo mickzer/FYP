@@ -42,7 +42,8 @@ class JobBigOperationController(threading.Thread):
             elif job.status == 'tasks completed':
                 job.set_session(session)
                 #pause async_downloader
-                job.downloaded_task_outputs = self.async_downloader.pause(job.id)
+                job.downloaded_task_outputs = self.async_downloader.pause(job_id=job.id)
+                print 'DOWNLOADED: '+str(job.downloaded_task_outputs)
                 job.execute_final_script()
                 self.async_downloader.resume()
             else:

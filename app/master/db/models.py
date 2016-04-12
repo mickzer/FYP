@@ -94,7 +94,7 @@ class Task(Base, SerializableBase):
         log.remove_job_id()
         log.remove_task_id()
     def __repr__(self):
-        return '<Task (id=%s, job=%s, status=%s)>' % (self.id, self.job_id, self.status)
+        return '<Task (id=%s, job=%s, task_id=%s, status=%s)>' % (self.id, self.job_id, self.task_id, self.status)
 
 class Job(Base, SerializableBase):
     __tablename__='job'

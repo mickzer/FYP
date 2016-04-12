@@ -19,15 +19,15 @@ class Receiver(threading.Thread):
         #should prob throw exception is these are null
         self.job_big_operation_controller = job_big_operation_controller
         self.async_downloader = async_downloader
-        self.log_buffer = []
         self.log_buffer_count = 0
 
     def run(self):
         self.session = Session()
         log.info('Polling workers messaging queue')
         while True:
-            if self.log_buffer_count == 5:
-                self._commit_buffered_logs()
+            if self.log_buffer_count == 1:
+                self.session.commit()
+                self.log_buffer_count = 0
             #poll queue
             msg_batch = workers_messaging_queue.poll_batch()
             msg_batch_data = msg_batch.get_data()
@@ -43,28 +43,23 @@ class Receiver(threading.Thread):
                         self._add_to_log(msg)
                     elif msg['type'] == 'task':
                         #commit any buffered logs first
-                        self._commit_buffered_logs()
+                        self.session.commit()
+                        self.log_buffer_count = 0
                         self._process_task_message(msg)
                 time.sleep(0.01)
             msg_batch.delete()
-
-    def _commit_buffered_logs(self):
-        for log in self.log_buffer:
-            self.session.add(log)
-        self.session.commit()
-        self.log_buffer = []
-        self.log_buffer_count = 0
 
     def _add_to_log(self, msg):
         #add to DB
         msg['data']['type'] = 'worker'
         l=Log(**msg['data'])
-        print l
         try:
             l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
         except:
             l.date=datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S')
-        self.log_buffer.append(l)
+        print l
+        self.session.add(l)
+        # self.session.commit()
         self.log_buffer_count += 1
 
     def _process_task_message(self, msg):
@@ -77,7 +72,6 @@ class Receiver(threading.Thread):
             #out of order SQS messages
             if msg['data']['status'] == 'executing' and task.status == 'completed':
                 task.started = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
-                task.output_data = msg['data']['output_data']
                 self.session.commit()
             if task.status != 'completed':
                 job = self.session.query(Job).filter(Job.id == task.job_id).first()
@@ -110,7 +104,7 @@ class Receiver(threading.Thread):
             context  = job.task_completion_context
             log.info('Task Completion Script Executor Finished')
         #if job has final script, queue task output for async downlaod
-        if job.final_script and task.output_data:
+        if job.final_script and msg['data']['output_data']:
             self.async_downloader.add(job.id, task.task_id)
         #tell db when the task finshed
         #note sure why, but I have to rollback the session and set the
@@ -119,6 +113,7 @@ class Receiver(threading.Thread):
         self.session.rollback()
         job.task_completion_context = context
         task.finished = datetime.strptime(msg['create_time'], '%Y-%m-%d %H:%M:%S.%f')
+        task.output_data = msg['data']['output_data']
         self.session.commit()
         log.info('%s Completed at %s' % (task, msg['create_time']))
 

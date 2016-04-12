@@ -122,6 +122,7 @@ class TaskExecutor(Executor):
                 self.task['output_data'] = True
                 return True
             log.error('Failed to Upload Task Output')
+            self.task['output_data'] = False
             return False
         log.info('No Task Output Exists')
         self.task['output_data'] = False

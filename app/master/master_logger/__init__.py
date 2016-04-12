@@ -46,18 +46,22 @@ class AsyncDbPublisher(threading.Thread):
          threading.Thread.__init__(self)
          self._queue = Queue.Queue()
          self.session = Session()
+         self.buffer = []
 
     def run(self):
         count = 0
         while True:
             data = self._queue.get(True)
             l=Log(**data)
-            self.session.add(l)
+            self.buffer.append(l)
             count += 1
             #buffer 10 insertions before committing
             if(count == 10):
+                for msg in self.buffer:
+                    self.session.add(msg)
                 self.session.commit()
                 count = 0
+                self.buffer = []
             time.sleep(0.01)
 
     def publish(self, data):

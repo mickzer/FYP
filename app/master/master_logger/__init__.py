@@ -56,10 +56,12 @@ class AsyncDbPublisher(threading.Thread):
             self.buffer.append(l)
             count += 1
             #buffer 10 insertions before committing
-            if(count == 1):
+            if(count == 10):
+                self.session = Session()
                 for msg in self.buffer:
                     self.session.add(msg)
                 self.session.commit()
+                self.session.remove()
                 count = 0
                 self.buffer = []
             time.sleep(0.01)

@@ -68,6 +68,7 @@ class Task(Base, SerializableBase):
     started = Column(DateTime)
     finished = Column(DateTime)
     attributes = Column(PickleType)
+    output_data = Column(Boolean)
 
     def set_session(self, session):
         self.session = session

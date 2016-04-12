@@ -42,12 +42,11 @@ class JobFinalScriptExecutor(Executor):
         #get tasks whos outputs haven't been downloaded yet
         #temporarily sticking this import here to avoid circular import
         from master.db.models import Task, Job
-        tasks = self.job.session.query(Task).filter(and_(Task.job_id == self.job.id, not_(Task.task_id.in_(self.job.downloaded_task_outputs)))).all()
+        tasks = self.job.session.query(Task).filter(and_(Task.job_id == self.job.id, Task.output_data, not_(Task.task_id.in_(self.job.downloaded_task_outputs)))).all()
         for task in tasks:
             path = 'job-'+self.job.id+'/task_output/' + str(task.task_id)
             #download file
-            if not s3.get(path, file_path=global_conf.CWD+path):
-                return False
+            s3.get(path, file_path=global_conf.CWD+path)
         return True
 
     def _execute(self):
@@ -81,8 +80,7 @@ class JobFinalScriptExecutor(Executor):
         return True
 
     def _after_execute(self):
-        r = self._upload_output() and self._delete_local_data()
-        return r # and self._delete_task_data_s3() - this should be job optional
+        return self._upload_output() and self._delete_local_data()
 
     def _upload_output(self):
         log.info('Uploading Final Script Output(s) to S3')
@@ -96,12 +94,12 @@ class JobFinalScriptExecutor(Executor):
 
     def _delete_local_data(self):
         log.info('Deleting Task & Final Script Output Data')
-        try:
-            shutil.rmtree(self.job_dir)
-            shutil.rmtree(self.job_module)
-            log.info('Deleted Final Script Module')
-        except Exception, e:
-             log.error('Error Deleting Local Data', exc_info=True)
+        # try:
+        #     shutil.rmtree(self.job_dir)
+        #     shutil.rmtree(self.job_module)
+        #     log.info('Deleted Final Script Module')
+        # except Exception, e:
+        #      log.error('Error Deleting Local Data', exc_info=True)
         return True
 
     #this function deletes the task input splits and task outputs from S3
@@ -117,5 +115,5 @@ class JobFinalScriptExecutor(Executor):
 
     def _failed_execution(self):
         log.info('Final Script Execution failed for %s' % (self.job))
-        self._delete_local_data()
-        self.job.mark_as_failed()
+        # self._delete_local_data()
+        # self.job.mark_as_failed()

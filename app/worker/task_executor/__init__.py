@@ -119,10 +119,12 @@ class TaskExecutor(Executor):
             log.info('Uploading Task Output to S3')
             key = '/job-'+self.task['job_id']+'/task_output/'+str(self.task['task_id'])
             if s3.put(self.task_dir+'output', key):
+                self.task['output_data'] = True
                 return True
             log.error('Failed to Upload Task Output')
             return False
         log.info('No Task Output Exists')
+        self.task['output_data'] = False
         return True
 
     def _delete_local_data(self):

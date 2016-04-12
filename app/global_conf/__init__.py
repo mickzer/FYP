@@ -1,4 +1,4 @@
-import json, sys
+import sys
 
 #app confs
 CWD = '/home/ec2-user/fyp/'

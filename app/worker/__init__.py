@@ -2,7 +2,6 @@ from worker.worker_logger import create_worker_logger, WorkerLoggingAdapter
 log = create_worker_logger('root_logger')
 log = WorkerLoggingAdapter(log)
 
-from worker.sqs_poller import poll
 from worker.task_executor import TaskExecutor
 from worker.worker_logger import WorkerLoggingHandler
 from aws.sqs import new_tasks_queue, workers_messaging_queue

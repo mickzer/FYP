@@ -144,10 +144,11 @@ class Job(Base, SerializableBase):
     def execute_final_script(self):
         # self.status = 'executing final script'
         # self.session.commit()
-        job = self.session.query(Job).filter(Job.id==self.id).first()
+        ses=Session()
+        job = ses.query(Job).filter(Job.id==self.id).first()
         job.status = 'executing final script'
-        self.session.add(job)
-        self.session.commit()
+        ses.add(job)
+        ses.commit()
         executor = JobFinalScriptExecutor(self)
         r = executor.run_execution()
         if not r:
@@ -158,7 +159,7 @@ class Job(Base, SerializableBase):
     def mark_as_completed(self):
         log.set_job_id(self.id)
         job = self.session.query(Job).filter(Job.id==self.id).first()
-        job.status = 'executing final script'
+        job.status = 'completed'
         self.finished = datetime.utcnow()
         self.session.add(job)
         self.session.commit()

@@ -61,7 +61,6 @@ class AsyncDbPublisher(threading.Thread):
                 for msg in self.buffer:
                     self.session.add(msg)
                 self.session.commit()
-                self.session.remove()
                 count = 0
                 self.buffer = []
             time.sleep(0.01)

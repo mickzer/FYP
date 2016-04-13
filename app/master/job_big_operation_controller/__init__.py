@@ -45,7 +45,7 @@ class JobBigOperationController(threading.Thread):
                 print 'CONTROLLER GOT IT'
                 job.set_session(self.session)
                 #pause async_downloader
-                job.downloaded_task_outputs = self.async_downloader.pause(job_id=job.id)
+                job.downloaded_task_outputs = self.async_downloader.pause(job.id)
                 print 'DOWNLOADED: '+str(job.downloaded_task_outputs)
                 job.session.rollback()
                 job.execute_final_script()

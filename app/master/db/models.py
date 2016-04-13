@@ -146,7 +146,7 @@ class Job(Base, SerializableBase):
         self.status = 'executing final script'
         self.session.commit()
         executor = JobFinalScriptExecutor(self)
-        r = executor.run_execution():
+        r = executor.run_execution()
         self.session.rollback()
         if not r:
             self.mark_as_failed()

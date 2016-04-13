@@ -127,8 +127,6 @@ class Receiver(threading.Thread):
 
     def _all_tasks_completed(self, job):
         log.info('Tasks Finished for %s' % job)
-        job.status = 'tasks completed'
-        self.session.commit()
         if job.final_script:
             #remove job from this threads session
             self.session.expunge(job)

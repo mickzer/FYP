@@ -39,11 +39,9 @@ class AsyncDownloader(threading.Thread):
         self.pause_cond.acquire()
         #return the list of downloaded files for a specified job
         #and delete all records from here
-        if job_id and job_id in self.queued_files:
+        if job_id and job_id in self.downloaded_files:
             del self.queued_files[job_id]
             r = self.downloaded_files[job_id]
-            print 'Getting: job-'+str(job_id)
-            print str(self.downloaded_files[job_id])
             del self.downloaded_files[job_id]
             return r
         return None

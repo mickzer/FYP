@@ -146,7 +146,6 @@ class Job(Base, SerializableBase):
         self.session.commit()
         executor = JobFinalScriptExecutor(self)
         r = executor.run_execution()
-        self.session.rollback()
         if not r:
             self.mark_as_failed()
         else:
@@ -154,7 +153,6 @@ class Job(Base, SerializableBase):
 
     def mark_as_completed(self):
         log.set_job_id(self.id)
-        time.sleep(5)
         self.status = 'completed'
         self.finished = datetime.utcnow()
         self.session.commit()
@@ -164,13 +162,11 @@ class Job(Base, SerializableBase):
 
     def mark_as_tasks_executing(self):
         log.set_job_id(self.id)
-        self.session.rollback()
         self.status = 'executing tasks'
         self.session.commit()
 
     def mark_as_failed(self):
         log.set_job_id(self.id)
-        self.session.rollback()
         self.status = 'failed'
         self.finished = datetime.utcnow()
         self.session.commit()

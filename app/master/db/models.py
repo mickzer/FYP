@@ -142,8 +142,12 @@ class Job(Base, SerializableBase):
         return uncompleted_tasks == 0
 
     def execute_final_script(self):
-        self.status = 'executing final script'
-        self.session.commit()
+        # self.status = 'executing final script'
+        # self.session.commit()
+        job = self.session.query(Job).filter(Job.id==self.id).first()
+        job.status = 'executing final script'
+        self.session.add(job)
+        self.sesison.commit()
         executor = JobFinalScriptExecutor(self)
         r = executor.run_execution()
         if not r:
@@ -153,8 +157,10 @@ class Job(Base, SerializableBase):
 
     def mark_as_completed(self):
         log.set_job_id(self.id)
-        self.status = 'completed'
+        job = self.session.query(Job).filter(Job.id==self.id).first()
+        job.status = 'executing final script'
         self.finished = datetime.utcnow()
+        self.session.add(job)
         self.session.commit()
         log.info('Job <%s> Completed' % (self.id))
         log.remove_job_id()
@@ -162,7 +168,9 @@ class Job(Base, SerializableBase):
 
     def mark_as_tasks_executing(self):
         log.set_job_id(self.id)
-        self.status = 'executing tasks'
+        job = self.session.query(Job).filter(Job.id==self.id).first()
+        job.status = 'executing tasks'
+        self.session.add(job)
         self.session.commit()
 
     def mark_as_failed(self):

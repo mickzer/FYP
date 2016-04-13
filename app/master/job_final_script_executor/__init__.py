@@ -101,7 +101,6 @@ class JobFinalScriptExecutor(Executor):
             log.info('Deleted Final Script Module')
         except Exception, e:
              log.error('Error Deleting Local Data', exc_info=True)
-             self.session.commit()
         return True
 
     #this function deletes the task input splits and task outputs from S3

@@ -142,10 +142,13 @@ class Job(Base, SerializableBase):
         return uncompleted_tasks == 0
 
     def execute_final_script(self):
+        self.session.rollback()
         self.status = 'executing final script'
         self.session.commit()
         executor = JobFinalScriptExecutor(self)
-        if not executor.run_execution():
+        r = executor.run_execution():
+        self.session.rollback()
+        if not r:
             self.mark_as_failed()
         else:
             self.mark_as_completed()

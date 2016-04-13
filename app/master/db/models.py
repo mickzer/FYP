@@ -166,6 +166,14 @@ class Job(Base, SerializableBase):
         log.remove_job_id()
         return True
 
+    def mark_as_tasks_completed(self):
+        log.set_job_id(self.id)
+        job = self.session.query(Job).filter(Job.id==self.id).first()
+        job.status = 'tasks completed'
+        self.session.add(job)
+        self.session.commit()
+        log.info('Tasks Completed for %s' % self)
+
     def mark_as_tasks_executing(self):
         log.set_job_id(self.id)
         job = self.session.query(Job).filter(Job.id==self.id).first()

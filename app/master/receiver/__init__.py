@@ -126,7 +126,7 @@ class Receiver(threading.Thread):
         log.info('%s Failed at %s' % (task, msg['create_time']))
 
     def _all_tasks_completed(self, job):
-        log.info('Tasks Finished for %s' % job)
+        job.mark_as_tasks_completed()
         if job.final_script:
             #remove job from this threads session
             self.session.expunge(job)

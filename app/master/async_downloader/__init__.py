@@ -42,6 +42,8 @@ class AsyncDownloader(threading.Thread):
         if job_id and job_id in self.queued_files:
             del self.queued_files[job_id]
             r = self.downloaded_files[job_id]
+            print 'Getting: job-'+str(job_id)
+            print str(self.downloaded_files[job_id])
             del self.downloaded_files[job_id]
             return r
         return None
@@ -78,6 +80,7 @@ class AsyncDownloader(threading.Thread):
                     s3.get(path, file_path=global_conf.CWD+path)
                     #add downloaded file to downloaded_files
                     self.downloaded_files[job_id].append(task_id)
+                    print str(self.downloaded_files[job_id])
                     #delete the key from self.queued_files if queue is empty
                     if q[job_id].empty():
                         del self.queued_files[job_id]

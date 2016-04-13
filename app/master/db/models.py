@@ -1,4 +1,4 @@
-import logging
+import logging, time
 from master.master_logger import MasterLoggingAdapter
 log = logging.getLogger('root_logger')
 log = MasterLoggingAdapter(log)
@@ -142,7 +142,6 @@ class Job(Base, SerializableBase):
         return uncompleted_tasks == 0
 
     def execute_final_script(self):
-        self.session.rollback()
         self.status = 'executing final script'
         self.session.commit()
         executor = JobFinalScriptExecutor(self)
@@ -155,7 +154,7 @@ class Job(Base, SerializableBase):
 
     def mark_as_completed(self):
         log.set_job_id(self.id)
-        self.session.rollback()
+        time.sleep(5)
         self.status = 'completed'
         self.finished = datetime.utcnow()
         self.session.commit()

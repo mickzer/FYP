@@ -147,7 +147,7 @@ class Job(Base, SerializableBase):
         job = self.session.query(Job).filter(Job.id==self.id).first()
         job.status = 'executing final script'
         self.session.add(job)
-        self.sesison.commit()
+        self.session.commit()
         executor = JobFinalScriptExecutor(self)
         r = executor.run_execution()
         if not r:
